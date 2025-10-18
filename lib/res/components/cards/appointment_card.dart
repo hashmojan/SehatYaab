@@ -1,10 +1,16 @@
+// res/components/cards/appointment_card.dart
+import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
-import 'package:sehatyab/res/routes/routes_name.dart';
 import 'package:get/get.dart';
 
+import '../../routes/routes_name.dart';
+// Your Appointment model must be imported here to use the toMap() method
+import '../../../models/doctor/appointment/appointment_model.dart';
+
 class AppointmentCard extends StatelessWidget {
-  final Map<String, dynamic> appointment;
+  // Use a dynamic type for the constructor to accept either a Map or an Appointment model
+  final dynamic appointment;
   final bool isDoctorView;
   final VoidCallback? onCancel;
   final VoidCallback? onConfirm;
@@ -14,6 +20,7 @@ class AppointmentCard extends StatelessWidget {
   final bool compactMode;
   final Color? cardColor;
   final bool showQueueInfo;
+  final Widget? actions; // 🌟 Add this new optional parameter 🌟
 
   const AppointmentCard({
     super.key,
@@ -27,12 +34,25 @@ class AppointmentCard extends StatelessWidget {
     this.compactMode = false,
     this.cardColor,
     this.showQueueInfo = false,
+    this.actions, // 🌟 Initialize the new parameter 🌟
   });
 
   @override
   Widget build(BuildContext context) {
+    // This is the core fix: Safely convert the input to a Map
+    final Map<String, dynamic> appointmentData;
+    if (appointment is Appointment) {
+      // This line now works because the Appointment model has a toMap() method.
+      appointmentData = (appointment as Appointment).toMap();
+    } else if (appointment is Map<String, dynamic>) {
+      appointmentData = appointment;
+    } else {
+      // Handle the case where the input is neither
+      return const SizedBox.shrink();
+    }
+
     final theme = Theme.of(context);
-    final status = appointment['status']?.toLowerCase() ?? 'pending';
+    final status = appointmentData['status']?.toLowerCase() ?? 'pending';
     final statusColor = _getStatusColor(status);
 
     return Card(
@@ -43,7 +63,7 @@ class AppointmentCard extends StatelessWidget {
         borderRadius: BorderRadius.circular(12),
       ),
       child: InkWell(
-        onTap: onTap ?? () => _navigateToDetails(context),
+        onTap: onTap ?? () => _navigateToDetails(context, appointmentData),
         borderRadius: BorderRadius.circular(12),
         child: Padding(
           padding: compactMode
@@ -52,14 +72,16 @@ class AppointmentCard extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _buildHeaderSection(theme),
+              _buildHeaderSection(theme, appointmentData),
               const SizedBox(height: 12),
-              _buildDateTimeSection(theme),
-              if (showQueueInfo) _buildQueueInfo(),
-              if (!compactMode && appointment['notes'] != null && appointment['notes'].isNotEmpty)
-                _buildNotesSection(),
+              _buildDateTimeSection(theme, appointmentData),
+              if (showQueueInfo) _buildQueueInfo(appointmentData),
+              if (!compactMode && appointmentData['notes'] != null && appointmentData['notes'].isNotEmpty)
+                _buildNotesSection(appointmentData),
               const SizedBox(height: 12),
-              _buildFooterSection(theme, status, statusColor),
+              _buildFooterSection(theme, status, statusColor, appointmentData),
+              if (actions != null) const SizedBox(height: 8), // Add a small space above the buttons
+              if (actions != null) actions!, // 🌟 Render the new actions widget 🌟
             ],
           ),
         ),
@@ -67,13 +89,14 @@ class AppointmentCard extends StatelessWidget {
     );
   }
 
-  Widget _buildHeaderSection(ThemeData theme) {
+  // All helper methods now take the Map as an argument
+  Widget _buildHeaderSection(ThemeData theme, Map<String, dynamic> data) {
     return Row(
       children: [
-        if (showStatusIndicator) _buildStatusIndicator(),
+        if (showStatusIndicator) _buildStatusIndicator(data),
         CircleAvatar(
           radius: compactMode ? 16 : 24,
-          backgroundImage: _getProfileImage(),
+          backgroundImage: _getProfileImage(data),
         ),
         const SizedBox(width: 12),
         Expanded(
@@ -82,8 +105,8 @@ class AppointmentCard extends StatelessWidget {
             children: [
               Text(
                 isDoctorView
-                    ? appointment['patientName'] ?? 'Patient'
-                    : appointment['doctorName'] ?? 'Doctor',
+                    ? data['patientName'] ?? 'Patient'
+                    : data['doctorName'] ?? 'Doctor',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   fontSize: compactMode ? 14 : null,
@@ -93,10 +116,10 @@ class AppointmentCard extends StatelessWidget {
               ),
               if (!compactMode) Text(
                 isDoctorView
-                    ? appointment['patientAge'] != null
-                    ? 'Age: ${appointment['patientAge']}'
+                    ? data['patientAge'] != null
+                    ? 'Age: ${data['patientAge']}'
                     : ''
-                    : appointment['doctorSpecialty'] ?? 'Specialist',
+                    : data['doctorSpecialty'] ?? 'Specialist',
                 style: TextStyle(
                   color: Colors.grey[600],
                   fontSize: compactMode ? 12 : null,
@@ -115,32 +138,32 @@ class AppointmentCard extends StatelessWidget {
     );
   }
 
-  ImageProvider _getProfileImage() {
+  ImageProvider _getProfileImage(Map<String, dynamic> data) {
     if (isDoctorView) {
-      return appointment['patientImage'] != null
-          ? NetworkImage(appointment['patientImage']!)
+      return data['patientImage'] != null
+          ? NetworkImage(data['patientImage']!)
           : const AssetImage('assets/default_patient.png') as ImageProvider;
     } else {
-      return appointment['doctorImage'] != null
-          ? NetworkImage(appointment['doctorImage']!)
+      return data['doctorImage'] != null
+          ? NetworkImage(data['doctorImage']!)
           : const AssetImage('assets/default_doctor.png') as ImageProvider;
     }
   }
 
-  Widget _buildStatusIndicator() {
+  Widget _buildStatusIndicator(Map<String, dynamic> data) {
     return Container(
       margin: const EdgeInsets.only(right: 8),
       width: 8,
       height: 8,
       decoration: BoxDecoration(
-        color: _getStatusColor(appointment['status'] ?? 'pending'),
+        color: _getStatusColor(data['status'] ?? 'pending'),
         shape: BoxShape.circle,
       ),
     );
   }
 
-  Widget _buildDateTimeSection(ThemeData theme) {
-    final date = _getAppointmentDate(appointment['date']);
+  Widget _buildDateTimeSection(ThemeData theme, Map<String, dynamic> data) {
+    final date = _getAppointmentDate(data['date']);
 
     return Row(
       children: [
@@ -167,13 +190,13 @@ class AppointmentCard extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          appointment['time'] ?? 'Time not specified',
+          data['time'] ?? 'Time not specified',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: compactMode ? 13 : null,
             color: theme.textTheme.bodySmall?.color,
           ),
         ),
-        if (appointment['location']?.isNotEmpty ?? false) ...[
+        if (data['location']?.isNotEmpty ?? false) ...[
           const SizedBox(width: 16),
           Icon(
             Icons.location_on_outlined,
@@ -182,7 +205,7 @@ class AppointmentCard extends StatelessWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            appointment['location'],
+            data['location'],
             style: theme.textTheme.bodySmall,
           ),
         ],
@@ -190,7 +213,7 @@ class AppointmentCard extends StatelessWidget {
     );
   }
 
-  Widget _buildQueueInfo() {
+  Widget _buildQueueInfo(Map<String, dynamic> data) {
     return Column(
       children: [
         const SizedBox(height: 8),
@@ -199,14 +222,14 @@ class AppointmentCard extends StatelessWidget {
             const Icon(Icons.confirmation_number, size: 16, color: Colors.grey),
             const SizedBox(width: 8),
             Text(
-              'Token: ${appointment['tokenNumber'] ?? 'N/A'}',
+              'Token: ${data['tokenNumber'] ?? 'N/A'}',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(width: 16),
             const Icon(Icons.people, size: 16, color: Colors.grey),
             const SizedBox(width: 8),
             Text(
-              'Queue: ${appointment['queuePosition'] ?? 'N/A'}',
+              'Queue: ${data['queuePosition'] ?? 'N/A'}',
               style: const TextStyle(fontWeight: FontWeight.bold),
             ),
           ],
@@ -215,7 +238,7 @@ class AppointmentCard extends StatelessWidget {
     );
   }
 
-  Widget _buildNotesSection() {
+  Widget _buildNotesSection(Map<String, dynamic> data) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -230,7 +253,7 @@ class AppointmentCard extends StatelessWidget {
         ),
         const SizedBox(height: 4),
         Text(
-          appointment['notes'],
+          data['notes'],
           style: TextStyle(
             color: Colors.grey[700],
             fontStyle: FontStyle.italic,
@@ -243,7 +266,7 @@ class AppointmentCard extends StatelessWidget {
     );
   }
 
-  Widget _buildFooterSection(ThemeData theme, String status, Color statusColor) {
+  Widget _buildFooterSection(ThemeData theme, String status, Color statusColor, Map<String, dynamic> data) {
     return Row(
       children: [
         _buildStatusChip(status, statusColor, theme),
@@ -320,6 +343,7 @@ class AppointmentCard extends StatelessWidget {
     switch (status.toLowerCase()) {
       case 'confirmed': return Colors.green;
       case 'cancelled': return Colors.red;
+      case 'rejected': return Colors.red;
       case 'completed': return Colors.blue;
       case 'pending': return Colors.orange;
       default: return Colors.grey;
@@ -329,14 +353,14 @@ class AppointmentCard extends StatelessWidget {
   DateTime? _getAppointmentDate(dynamic dateField) {
     if (dateField is DateTime) {
       return dateField;
-    } else if (dateField is String) {
-      return DateTime.tryParse(dateField);
+    } else if (dateField is Timestamp) {
+      return dateField.toDate();
     }
     return null;
   }
 
-  void _navigateToDetails(BuildContext context) {
+  void _navigateToDetails(BuildContext context, Map<String, dynamic> data) {
     if (compactMode) return;
-    Get.toNamed(RouteName.appointmentDetails, arguments: appointment);
+    Get.toNamed(RouteName.appointmentDetails, arguments: data);
   }
 }

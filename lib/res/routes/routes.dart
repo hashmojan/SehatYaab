@@ -1,6 +1,7 @@
 import 'package:get/get.dart';
 import 'package:sehatyab/res/routes/routes_name.dart';
 import 'package:sehatyab/view/about_us/about_us_screen.dart';
+import 'package:sehatyab/view/doctor/appointment/availability_manager.dart';
 import 'package:sehatyab/view/patient/health_records/health_records.dart';
 import 'package:sehatyab/view/profile/profile.dart';
 import 'package:sehatyab/view/setting/change_password/change_pass_page.dart';
@@ -22,7 +23,6 @@ import 'package:sehatyab/view/start_page/start_screen.dart';
 
 import '../../view/patient/appointment/appointment_details_page.dart';
 import '../../view/authentication/patient_signup/patient_signup_page.dart';
-import '../../view/doctor/schedule/doctor_schedule_page.dart';
 import '../../view/home/dr_home/doctor_home_page.dart';
 import '../../view/notification_page/notification_page.dart';
 
@@ -70,8 +70,8 @@ class AppRoutes {
       page: () => AppointmentDetailsPage(),
     ),
     GetPage(
-      name: RouteName.doctorSchedule,
-      page: () => DoctorSchedulePage(),
+      name: RouteName.availabilityManagerPage,
+      page: () => AvailabilityManagerPage(),
       // Add binding if needed
       // binding: DoctorScheduleBinding(),
     ),

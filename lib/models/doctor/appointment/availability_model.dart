@@ -1,56 +1,34 @@
 // models/availability_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/foundation.dart';
 import 'package:equatable/equatable.dart';
+import 'package:intl/intl.dart';
 
-@immutable
-class AvailabilityModel extends Equatable {
+// -------- Static Schedule --------
+class StaticScheduleModel extends Equatable {
   final String doctorId;
   final Map<String, List<String>> workingDays; // {day: [time slots]}
-  final List<DateTime> nonWorkingDates;
-  final DateTime createdAt;
-  final DateTime updatedAt;
-  final String timeZone;
   final int appointmentDuration; // in minutes
-  final String? locationId;
 
-  const AvailabilityModel({
+  const StaticScheduleModel({
     required this.doctorId,
     required this.workingDays,
-    required this.nonWorkingDates,
-    required this.createdAt,
-    required this.updatedAt,
-    this.timeZone = 'UTC',
     this.appointmentDuration = 30,
-    this.locationId,
   });
 
-  // Convert model to Firestore document
+  factory StaticScheduleModel.fromMap(Map<String, dynamic> map, String documentId) {
+    return StaticScheduleModel(
+      doctorId: map['doctorId'] as String,
+      workingDays: _convertWorkingDays(map['workingDays']),
+      appointmentDuration: map['appointmentDuration'] as int? ?? 30,
+    );
+  }
+
   Map<String, dynamic> toMap() {
     return {
       'doctorId': doctorId,
       'workingDays': workingDays,
-      'nonWorkingDates': nonWorkingDates.map((date) => Timestamp.fromDate(date)).toList(),
-      'createdAt': Timestamp.fromDate(createdAt),
-      'updatedAt': Timestamp.fromDate(updatedAt),
-      'timeZone': timeZone,
       'appointmentDuration': appointmentDuration,
-      'locationId': locationId,
     };
-  }
-
-  // Create model from Firestore document
-  factory AvailabilityModel.fromMap(Map<String, dynamic> map, String documentId) {
-    return AvailabilityModel(
-      doctorId: map['doctorId'] as String,
-      workingDays: _convertWorkingDays(map['workingDays']),
-      nonWorkingDates: _convertNonWorkingDates(map['nonWorkingDates']),
-      createdAt: (map['createdAt'] as Timestamp).toDate(),
-      updatedAt: (map['updatedAt'] as Timestamp).toDate(),
-      timeZone: map['timeZone'] as String? ?? 'UTC',
-      appointmentDuration: map['appointmentDuration'] as int? ?? 30,
-      locationId: map['locationId'] as String?,
-    );
   }
 
   static Map<String, List<String>> _convertWorkingDays(dynamic data) {
@@ -65,164 +43,104 @@ class AvailabilityModel extends Equatable {
     return result;
   }
 
-  static List<DateTime> _convertNonWorkingDates(dynamic data) {
-    if (data is List) {
-      return data
-          .whereType<Timestamp>()
-          .map((ts) => ts.toDate())
-          .toList();
-    }
-    return [];
-  }
+  @override
+  List<Object?> get props => [doctorId, workingDays, appointmentDuration];
+}
 
-  // Create a copy of the availability with updated values
-  AvailabilityModel copyWith({
-    String? doctorId,
-    Map<String, List<String>>? workingDays,
-    List<DateTime>? nonWorkingDates,
-    DateTime? createdAt,
-    DateTime? updatedAt,
-    String? timeZone,
-    int? appointmentDuration,
-    String? locationId,
+// -------- Daily Availability --------
+class DailyAvailabilityModel extends Equatable {
+  final String id; // doctorId_YYYY-MM-DD
+  final String doctorId;
+  final DateTime date;
+  final String status; // 'available', 'unavailable'
+  final int patientLimit;
+  final int appointmentsCount;
+  final List<String> availableTimeSlots; // optional: override static schedule
+
+  const DailyAvailabilityModel({
+    required this.id,
+    required this.doctorId,
+    required this.date,
+    this.status = 'unavailable',
+    this.patientLimit = 20, // ✅ default 20
+    this.appointmentsCount = 0,
+    this.availableTimeSlots = const [],
+  });
+
+  // Generate an ID automatically if needed
+  factory DailyAvailabilityModel.create({
+    required String doctorId,
+    required DateTime date,
+    String status = 'unavailable',
+    int patientLimit = 20,
   }) {
-    return AvailabilityModel(
-      doctorId: doctorId ?? this.doctorId,
-      workingDays: workingDays ?? this.workingDays,
-      nonWorkingDates: nonWorkingDates ?? this.nonWorkingDates,
-      createdAt: createdAt ?? this.createdAt,
-      updatedAt: updatedAt ?? this.updatedAt,
-      timeZone: timeZone ?? this.timeZone,
-      appointmentDuration: appointmentDuration ?? this.appointmentDuration,
-      locationId: locationId ?? this.locationId,
+    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+    return DailyAvailabilityModel(
+      id: '${doctorId}_$dateKey',
+      doctorId: doctorId,
+      date: date,
+      status: status,
+      patientLimit: patientLimit,
+      appointmentsCount: 0,
+      availableTimeSlots: const [],
     );
   }
 
-  // Check if a specific date is available
-  bool isDateAvailable(DateTime date) {
-    final weekday = _getWeekdayString(date);
-    return workingDays.containsKey(weekday) &&
-        !nonWorkingDates.any((d) => _isSameDate(d, date));
+  // From Firestore
+  factory DailyAvailabilityModel.fromMap(Map<String, dynamic> map, String documentId) {
+    return DailyAvailabilityModel(
+      id: documentId,
+      doctorId: map['doctorId'] as String,
+      date: (map['date'] as Timestamp).toDate(),
+      status: map['status'] as String? ?? 'unavailable',
+      patientLimit: map['patientLimit'] as int? ?? 20,
+      appointmentsCount: map['appointmentsCount'] as int? ?? 0,
+      availableTimeSlots: List<String>.from(map['availableTimeSlots'] as List? ?? []),
+    );
   }
 
-  // Get available time slots for a specific date
-  List<String> getTimeSlotsForDate(DateTime date) {
-    if (!isDateAvailable(date)) return [];
-    return workingDays[_getWeekdayString(date)] ?? [];
+  // To Firestore
+  Map<String, dynamic> toMap() {
+    return {
+      'doctorId': doctorId,
+      'date': Timestamp.fromDate(date),
+      'status': status,
+      'patientLimit': patientLimit,
+      'appointmentsCount': appointmentsCount,
+      'availableTimeSlots': availableTimeSlots,
+    };
   }
 
-  // Validate the availability configuration
-  static List<String> validateAvailability(Map<String, List<String>> workingDays) {
-    final errors = <String>[];
-    const validDays = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  bool isFull() => appointmentsCount >= patientLimit;
 
-    if (workingDays.isEmpty) {
-      errors.add('At least one working day must be selected');
-    }
-
-    workingDays.forEach((day, slots) {
-      if (!validDays.contains(day)) {
-        errors.add('Invalid day: $day');
-      }
-
-      final timeRegex = RegExp(r'^([0-1]?[0-9]|2[0-3]):[0-5][0-9]$');
-      for (final slot in slots) {
-        if (!timeRegex.hasMatch(slot)) {
-          errors.add('Invalid time format: $slot');
-        }
-      }
-
-      // Check for sorted and non-overlapping slots
-      final sortedSlots = _sortTimeSlots(slots);
-      if (!listEquals(slots, sortedSlots)) {
-        errors.add('Time slots must be in chronological order: $day');
-      }
-
-      for (int i = 1; i < sortedSlots.length; i++) {
-        if (_timeToMinutes(sortedSlots[i]) <= _timeToMinutes(sortedSlots[i-1])) {
-          errors.add('Overlapping time slots: ${sortedSlots[i-1]} - ${sortedSlots[i]}');
-        }
-      }
-    });
-
-    return errors.toSet().toList(); // Remove duplicates
-  }
-
-  // Helper methods
-  static List<String> _sortTimeSlots(List<String> slots) {
-    return List.from(slots)
-      ..sort((a, b) => _timeToMinutes(a).compareTo(_timeToMinutes(b)));
-  }
-
-  static int _timeToMinutes(String time) {
-    final parts = time.split(':');
-    return int.parse(parts[0]) * 60 + int.parse(parts[1]);
-  }
-
-  static String _getWeekdayString(DateTime date) {
-    return ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    [date.weekday - 1];
-  }
-
-  static bool _isSameDate(DateTime a, DateTime b) {
-    return a.year == b.year && a.month == b.month && a.day == b.day;
+  DailyAvailabilityModel copyWith({
+    String? id,
+    String? doctorId,
+    DateTime? date,
+    String? status,
+    int? patientLimit,
+    int? appointmentsCount,
+    List<String>? availableTimeSlots,
+  }) {
+    return DailyAvailabilityModel(
+      id: id ?? this.id,
+      doctorId: doctorId ?? this.doctorId,
+      date: date ?? this.date,
+      status: status ?? this.status,
+      patientLimit: patientLimit ?? this.patientLimit,
+      appointmentsCount: appointmentsCount ?? this.appointmentsCount,
+      availableTimeSlots: availableTimeSlots ?? this.availableTimeSlots,
+    );
   }
 
   @override
   List<Object?> get props => [
+    id,
     doctorId,
-    workingDays,
-    nonWorkingDates,
-    createdAt,
-    updatedAt,
-    timeZone,
-    appointmentDuration,
-    locationId,
+    date,
+    status,
+    patientLimit,
+    appointmentsCount,
+    availableTimeSlots,
   ];
-
-  @override
-  String toString() => '''
-    AvailabilityModel(
-      doctorId: $doctorId,
-      workingDays: $workingDays,
-      nonWorkingDates: $nonWorkingDates,
-      timeZone: $timeZone,
-      appointmentDuration: $appointmentDuration,
-      locationId: $locationId,
-      createdAt: $createdAt,
-      updatedAt: $updatedAt
-    )
-  ''';
-
-  static empty() {}
-}
-
-// Extension for time slot calculations
-extension AvailabilityExtensions on AvailabilityModel {
-  List<DateTime> generateAvailableSlots(DateTime date) {
-    final slots = <DateTime>[];
-    final weekday = AvailabilityModel._getWeekdayString(date);
-    final timeSlots = workingDays[weekday] ?? [];
-
-    for (final slot in timeSlots) {
-      final timeParts = slot.split(':');
-      final hours = int.parse(timeParts[0]);
-      final minutes = int.parse(timeParts[1]);
-
-      slots.add(DateTime(
-        date.year,
-        date.month,
-        date.day,
-        hours,
-        minutes,
-      ));
-    }
-
-    return slots;
-  }
-
-  bool isSlotAvailable(DateTime date, String time) {
-    final weekday = AvailabilityModel._getWeekdayString(date);
-    return workingDays[weekday]?.contains(time) ?? false;
-  }
 }

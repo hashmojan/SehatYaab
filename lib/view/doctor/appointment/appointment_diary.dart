@@ -1,181 +1,76 @@
-import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:flutter/material.dart';
-import 'package:get/get.dart';
-import '../../../models/doctor/appointment/appointment_model.dart';
-import '../../../view_model/controller/appointment_controller/doctor_controller/doctor_appointment_controller.dart';
+// lib/models/doctor/appointment/appointment_model.dart
+class Appointment {
+  final String id;
+  final String patientName;
+  final String doctorName;
+  final String status;
+  final DateTime date; // Updated to DateTime
+  final String time;
+  final String? patientImage;
+  final String? doctorImage;
+  final String? doctorSpecialty;
+  final int? patientAge;
+  final String? notes;
+  final String? location;
+  final int? tokenNumber;
+  final int? queuePosition;
+  final String doctorId; // Added for clarity and use in cancel function
 
-class AppointmentDiaryPage extends StatefulWidget {
-  @override
-  State<AppointmentDiaryPage> createState() => _AppointmentDiaryPageState();
-}
+  Appointment({
+    required this.id,
+    required this.patientName,
+    required this.doctorName,
+    required this.status,
+    required this.date,
+    required this.time,
+    this.patientImage,
+    this.doctorImage,
+    this.doctorSpecialty,
+    this.patientAge,
+    this.notes,
+    this.location,
+    this.tokenNumber,
+    this.queuePosition,
+    required this.doctorId,
+  });
 
-class _AppointmentDiaryPageState extends State<AppointmentDiaryPage> {
-  final DoctorAppointmentController controller = Get.find();
-  final RxString _filter = 'all'.obs;
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('Appointment Diary'),
-        actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list),
-            onPressed: () => _showFilterDialog(context),
-          ),
-        ],
-      ),
-      body: StreamBuilder<QuerySnapshot>(
-        stream: FirebaseFirestore.instance
-            .collection('appointments')
-            .where('doctorId', isEqualTo: controller.doctorId)
-            .snapshots(),
-        builder: (context, snapshot) {
-          if (snapshot.hasError) {
-            return Center(child: Text('Error: ${snapshot.error}'));
-          }
-
-          if (snapshot.connectionState == ConnectionState.waiting) {
-            return const Center(child: CircularProgressIndicator());
-          }
-
-          final appointments = snapshot.data!.docs
-              .map((doc) => Appointment.fromFirestore(doc))
-              .where((appt) => _filter.value == 'all' ||
-              (_filter.value == 'upcoming' && (appt.status == 'pending' || appt.status == 'confirmed')) ||
-              (_filter.value == 'past' && appt.status == 'completed') ||
-              (_filter.value == 'cancelled' && appt.status == 'cancelled'))
-              .toList();
-
-          if (appointments.isEmpty) {
-            return const Center(child: Text('No appointments found'));
-          }
-
-          return ListView.builder(
-            itemCount: appointments.length,
-            itemBuilder: (context, index) {
-              final appointment = appointments[index];
-              return AppointmentCard(appointment: appointment);
-            },
-          );
-        },
-      ),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _navigateToCreateAppointment(context),
-        child: const Icon(Icons.add),
-      ),
+  factory Appointment.fromMap(Map<String, dynamic> map) {
+    return Appointment(
+      id: map['id'] as String,
+      patientName: map['patientName'] as String,
+      doctorName: map['doctorName'] as String,
+      status: map['status'] as String,
+      date: DateTime.parse(map['date'] as String), // Parse the string into a DateTime object
+      time: map['time'] as String,
+      patientImage: map['patientImage'] as String?,
+      doctorImage: map['doctorImage'] as String?,
+      doctorSpecialty: map['doctorSpecialty'] as String?,
+      patientAge: map['patientAge'] as int?,
+      notes: map['notes'] as String?,
+      location: map['location'] as String?,
+      tokenNumber: map['tokenNumber'] as int?,
+      queuePosition: map['queuePosition'] as int?,
+      doctorId: map['doctorId'] as String,
     );
   }
 
-  void _showFilterDialog(BuildContext context) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('Filter Appointments'),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            _buildFilterRadio('all', 'All Appointments'),
-            _buildFilterRadio('upcoming', 'Upcoming'),
-            _buildFilterRadio('past', 'Past Appointments'),
-            _buildFilterRadio('cancelled', 'Cancelled'),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildFilterRadio(String value, String title) {
-    return Obx(() => RadioListTile<String>(
-      value: value,
-      groupValue: _filter.value,
-      title: Text(title),
-      onChanged: (value) {
-        Navigator.pop(context);
-        _filter.value = value!;
-      },
-    ));
-  }
-
-  void _navigateToCreateAppointment(BuildContext context) {
-    // Implement navigation to appointment creation screen
-  }
-}
-
-class AppointmentCard extends StatelessWidget {
-  final Appointment appointment;
-
-  const AppointmentCard({super.key, required this.appointment});
-
-  @override
-  Widget build(BuildContext context) {
-    return Card(
-      margin: const EdgeInsets.all(8),
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Text(
-              appointment.patientName,
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Row(
-              children: [
-                const Icon(Icons.calendar_today, size: 16),
-                const SizedBox(width: 8),
-                // Text(DateFormat('MMM d, yyyy').format(appointment.date)),
-              ],
-            ),
-            const SizedBox(height: 4),
-            Row(
-              children: [
-                const Icon(Icons.access_time, size: 16),
-                const SizedBox(width: 8),
-                Text(appointment.time),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Chip(
-              label: Text(
-                appointment.status.toUpperCase(),
-                style: const TextStyle(fontSize: 12),
-              ),
-              backgroundColor: _getStatusColor(appointment.status),
-            ),
-            if (appointment.status != 'cancelled') ...[
-              const SizedBox(height: 8),
-              Align(
-                alignment: Alignment.centerRight,
-                child: TextButton(
-                  onPressed: () => Get.find<DoctorAppointmentController>()
-                      .cancelAppointment(appointment.id),
-                  child: const Text('Cancel Appointment'),
-                ),
-              ),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-
-  Color _getStatusColor(String status) {
-    switch (status) {
-      case 'confirmed':
-        return Colors.green.shade100;
-      case 'cancelled':
-        return Colors.red.shade100;
-      case 'completed':
-        return Colors.blue.shade100;
-      case 'pending':
-        return Colors.orange.shade100;
-      default:
-        return Colors.grey.shade100;
-    }
+  Map<String, dynamic> toMap() {
+    return {
+      'id': id,
+      'patientName': patientName,
+      'doctorName': doctorName,
+      'status': status,
+      'date': date.toIso8601String(), // Convert DateTime to a string for storage
+      'time': time,
+      'patientImage': patientImage,
+      'doctorImage': doctorImage,
+      'doctorSpecialty': doctorSpecialty,
+      'patientAge': patientAge,
+      'notes': notes,
+      'location': location,
+      'tokenNumber': tokenNumber,
+      'queuePosition': queuePosition,
+      'doctorId': doctorId,
+    };
   }
 }

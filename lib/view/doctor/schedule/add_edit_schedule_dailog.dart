@@ -1,159 +1,107 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:sehatyab/models/doctor/schedule_slot/schedule_slot.dart';
+import 'package:intl/intl.dart';
+import 'package:flutter/services.dart';
 
-class AddEditScheduleDialog extends StatefulWidget {
-  final String title;
-  final ScheduleSlot? initialSlot;
-  final Future<ScheduleSlot?> Function(ScheduleSlot) onSave;
+import '../../../models/doctor/appointment/availability_model.dart';
 
-  const AddEditScheduleDialog({
+class SetDailyAvailabilityDialog extends StatefulWidget {
+  final DateTime date;
+  final DailyAvailabilityModel? initialData;
+  final void Function(String status, int patientLimit) onSave;
+
+  const SetDailyAvailabilityDialog({
     Key? key,
-    required this.title,
-    this.initialSlot,
+    required this.date,
+    this.initialData,
     required this.onSave,
   }) : super(key: key);
 
   @override
-  _AddEditScheduleDialogState createState() => _AddEditScheduleDialogState();
+  _SetDailyAvailabilityDialogState createState() => _SetDailyAvailabilityDialogState();
 }
 
-class _AddEditScheduleDialogState extends State<AddEditScheduleDialog> {
-  final _formKey = GlobalKey<FormState>();
-  final daysOfWeek = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
-
-  late String _selectedDay;
-  late String _startTime;
-  late String _endTime;
-  late bool _isAvailable;
-  late int _maxAppointments;
-  bool _isSaving = false;
+class _SetDailyAvailabilityDialogState extends State<SetDailyAvailabilityDialog> {
+  late final RxString _status;
+  late final TextEditingController _patientLimitController;
 
   @override
   void initState() {
     super.initState();
-    _selectedDay = widget.initialSlot?.day ?? daysOfWeek[0];
-    _startTime = widget.initialSlot?.startTime ?? '09:00';
-    _endTime = widget.initialSlot?.endTime ?? '17:00';
-    _isAvailable = widget.initialSlot?.isAvailable ?? true;
-    _maxAppointments = widget.initialSlot?.maxAppointments ?? 10;
+    _status = (widget.initialData?.status ?? 'available').obs;
+    _patientLimitController = TextEditingController(
+      text: (widget.initialData?.patientLimit ?? 10).toString(),
+    );
   }
 
-  Future<void> _selectTime(BuildContext context, bool isStartTime) async {
-    final initialTime = TimeOfDay(
-      hour: int.parse(isStartTime ? _startTime.split(':')[0] : _endTime.split(':')[0]),
-      minute: int.parse(isStartTime ? _startTime.split(':')[1] : _endTime.split(':')[1]),
-    );
-
-    final pickedTime = await showTimePicker(
-      context: context,
-      initialTime: initialTime,
-    );
-
-    if (pickedTime != null) {
-      final formattedTime = '${pickedTime.hour.toString().padLeft(2, '0')}:${pickedTime.minute.toString().padLeft(2, '0')}';
-      setState(() {
-        if (isStartTime) {
-          _startTime = formattedTime;
-        } else {
-          _endTime = formattedTime;
-        }
-      });
-    }
+  @override
+  void dispose() {
+    _patientLimitController.dispose();
+    super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     return AlertDialog(
-      title: Text(widget.title),
+      title: Text('Set Availability for ${DateFormat.yMMMd().format(widget.date)}'),
       content: SingleChildScrollView(
-        child: Form(
-          key: _formKey,
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              DropdownButtonFormField<String>(
-                value: _selectedDay,
-                items: daysOfWeek.map((day) {
-                  return DropdownMenuItem(
-                    value: day,
-                    child: Text(day),
-                  );
-                }).toList(),
-                onChanged: (value) {
-                  setState(() {
-                    _selectedDay = value!;
-                  });
-                },
-                decoration: const InputDecoration(
-                  labelText: 'Day',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-              const SizedBox(height: 16),
-              Row(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            const Text(
+              'Status:',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            Obx(
+                  () => Row(
                 children: [
                   Expanded(
-                    child: InkWell(
-                      onTap: () => _selectTime(context, true),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'Start Time',
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(_startTime),
-                      ),
+                    child: RadioListTile<String>(
+                      title: const Text('Available'),
+                      value: 'available',
+                      groupValue: _status.value,
+                      onChanged: (value) {
+                        if (value != null) {
+                          _status.value = value;
+                        }
+                      },
                     ),
                   ),
-                  const SizedBox(width: 16),
                   Expanded(
-                    child: InkWell(
-                      onTap: () => _selectTime(context, false),
-                      child: InputDecorator(
-                        decoration: const InputDecoration(
-                          labelText: 'End Time',
-                          border: OutlineInputBorder(),
-                        ),
-                        child: Text(_endTime),
-                      ),
+                    child: RadioListTile<String>(
+                      title: const Text('Unavailable'),
+                      value: 'unavailable',
+                      groupValue: _status.value,
+                      onChanged: (value) {
+                        if (value != null) {
+                          _status.value = value;
+                        }
+                      },
                     ),
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
-              SwitchListTile(
-                title: const Text('Available for Appointments'),
-                value: _isAvailable,
-                onChanged: (value) {
-                  setState(() {
-                    _isAvailable = value;
-                  });
-                },
-              ),
-              const SizedBox(height: 16),
-              TextFormField(
-                initialValue: _maxAppointments.toString(),
-                decoration: const InputDecoration(
-                  labelText: 'Max Appointments',
-                  border: OutlineInputBorder(),
+            ),
+            const SizedBox(height: 16),
+            Obx(
+                  () => Visibility(
+                visible: _status.value == 'available',
+                child: TextField(
+                  controller: _patientLimitController,
+                  decoration: const InputDecoration(
+                    labelText: 'Patient Limit for this Day',
+                    border: OutlineInputBorder(),
+                    hintText: 'e.g., 10',
+                  ),
+                  keyboardType: TextInputType.number,
+                  inputFormatters: <TextInputFormatter>[
+                    FilteringTextInputFormatter.digitsOnly
+                  ],
                 ),
-                keyboardType: TextInputType.number,
-                validator: (value) {
-                  if (value == null || value.isEmpty) {
-                    return 'Please enter maximum appointments';
-                  }
-                  final num = int.tryParse(value);
-                  if (num == null || num <= 0) {
-                    return 'Please enter a valid number';
-                  }
-                  return null;
-                },
-                onSaved: (value) {
-                  _maxAppointments = int.parse(value!);
-                },
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
       actions: [
@@ -162,44 +110,18 @@ class _AddEditScheduleDialogState extends State<AddEditScheduleDialog> {
           child: const Text('Cancel'),
         ),
         ElevatedButton(
-          onPressed: _isSaving ? null : _saveForm,
-          child: _isSaving
-              ? const CircularProgressIndicator()
-              : const Text('Save'),
+          onPressed: () {
+            final patientLimit = int.tryParse(_patientLimitController.text) ?? 0;
+            if (_status.value == 'available' && patientLimit <= 0) {
+              Get.snackbar('Error', 'Patient limit must be greater than 0');
+              return;
+            }
+            widget.onSave(_status.value, patientLimit);
+            Get.back();
+          },
+          child: const Text('Save'),
         ),
       ],
     );
-  }
-
-  Future<void> _saveForm() async {
-    if (_formKey.currentState!.validate()) {
-      _formKey.currentState!.save();
-      setState(() => _isSaving = true);
-
-      final newSlot = ScheduleSlot(
-        id: widget.initialSlot?.id ?? '',
-        doctorId: widget.initialSlot?.doctorId ?? '',
-        day: _selectedDay,
-        startTime: _startTime,
-        endTime: _endTime,
-        date: widget.initialSlot?.date ?? DateTime.now(),
-        isAvailable: _isAvailable,
-        maxAppointments: _maxAppointments,
-      );
-
-      try {
-        final result = await widget.onSave(newSlot);
-        if (mounted) {
-          Get.back(result: result);
-        }
-      } catch (e) {
-        setState(() => _isSaving = false);
-        if (mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text('Failed to save: ${e.toString()}')),
-          );
-        }
-      }
-    }
   }
 }

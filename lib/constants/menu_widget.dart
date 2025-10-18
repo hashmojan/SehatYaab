@@ -5,7 +5,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
 import '../res/colors/app_colors.dart';
 import '../res/routes/routes_name.dart';
-import '../view/patient/appointment/appointments_page.dart';
+import '../view/patient/appointment/myappointments_page.dart';
 import '../view/patient/health_records/health_records.dart';
 import '../view/profile/profile_controller.dart';
 
@@ -196,7 +196,7 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
               return Column(
                 children: [
                   _buildListTile(
-                    onTap: () => Get.toNamed(RouteName.doctorSchedulePage),
+                    onTap: () => Get.toNamed(RouteName.availabilityManagerPage),
                     title: "My Schedule",
                     icon: LucideIcons.calendarCheck,
                   ),

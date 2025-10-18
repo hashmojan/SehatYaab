@@ -34,7 +34,7 @@ class RouteName {
   static const appointmentBookingPage = '/appointment-booking';
   static const myAppointmentsPage = '/my-appointments';
   static const appointmentDetailsPage = '/appointment-details';
-  static const doctorSchedulePage = '/doctor-schedule';
+  static const availabilityManagerPage = '/availibility_manager';
   static const rescheduleAppointmentPage = '/reschedule-appointment';
   static const String appointmentDetails = '/appointment-details';
 
