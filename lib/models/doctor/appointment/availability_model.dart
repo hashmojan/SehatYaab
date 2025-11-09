@@ -1,146 +1,73 @@
-// models/availability_model.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
-import 'package:equatable/equatable.dart';
-import 'package:intl/intl.dart';
 
-// -------- Static Schedule --------
-class StaticScheduleModel extends Equatable {
+class DailyAvailabilityModel {
+  final String id;
   final String doctorId;
-  final Map<String, List<String>> workingDays; // {day: [time slots]}
-  final int appointmentDuration; // in minutes
-
-  const StaticScheduleModel({
-    required this.doctorId,
-    required this.workingDays,
-    this.appointmentDuration = 30,
-  });
-
-  factory StaticScheduleModel.fromMap(Map<String, dynamic> map, String documentId) {
-    return StaticScheduleModel(
-      doctorId: map['doctorId'] as String,
-      workingDays: _convertWorkingDays(map['workingDays']),
-      appointmentDuration: map['appointmentDuration'] as int? ?? 30,
-    );
-  }
-
-  Map<String, dynamic> toMap() {
-    return {
-      'doctorId': doctorId,
-      'workingDays': workingDays,
-      'appointmentDuration': appointmentDuration,
-    };
-  }
-
-  static Map<String, List<String>> _convertWorkingDays(dynamic data) {
-    final Map<String, List<String>> result = {};
-    if (data is Map) {
-      data.forEach((key, value) {
-        if (value is List) {
-          result[key.toString()] = List<String>.from(value);
-        }
-      });
-    }
-    return result;
-  }
-
-  @override
-  List<Object?> get props => [doctorId, workingDays, appointmentDuration];
-}
-
-// -------- Daily Availability --------
-class DailyAvailabilityModel extends Equatable {
-  final String id; // doctorId_YYYY-MM-DD
-  final String doctorId;
-  final DateTime date;
-  final String status; // 'available', 'unavailable'
-  final int patientLimit;
+  final DateTime date;     // normalized to 00:00
+  final String dateKey;    // yyyy-MM-dd
+  final String status;     // available | unavailable
+  final int patientLimit;  // if timeSlots is null, this is used for capacity
   final int appointmentsCount;
-  final List<String> availableTimeSlots; // optional: override static schedule
+  final List<String>? timeSlots; // optional per-day customized slots
+  final Timestamp? createdAt;
+  final Timestamp? updatedAt;
 
-  const DailyAvailabilityModel({
+  DailyAvailabilityModel({
     required this.id,
     required this.doctorId,
     required this.date,
-    this.status = 'unavailable',
-    this.patientLimit = 20, // ✅ default 20
-    this.appointmentsCount = 0,
-    this.availableTimeSlots = const [],
+    required this.dateKey,
+    required this.status,
+    required this.patientLimit,
+    required this.appointmentsCount,
+    this.timeSlots,
+    this.createdAt,
+    this.updatedAt,
   });
 
-  // Generate an ID automatically if needed
-  factory DailyAvailabilityModel.create({
-    required String doctorId,
-    required DateTime date,
-    String status = 'unavailable',
-    int patientLimit = 20,
-  }) {
-    final dateKey = DateFormat('yyyy-MM-dd').format(date);
+  factory DailyAvailabilityModel.fromMap(Map<String, dynamic> map, String id) {
+    final ts = map['date'] as Timestamp?;
+    final d = ts?.toDate() ?? DateTime.now();
     return DailyAvailabilityModel(
-      id: '${doctorId}_$dateKey',
-      doctorId: doctorId,
-      date: date,
-      status: status,
-      patientLimit: patientLimit,
-      appointmentsCount: 0,
-      availableTimeSlots: const [],
+      id: id,
+      doctorId: (map['doctorId'] ?? '') as String,
+      date: DateTime(d.year, d.month, d.day),
+      dateKey: (map['dateKey'] ?? '') as String,
+      status: (map['status'] ?? 'unavailable') as String,
+      patientLimit: (map['patientLimit'] ?? 0) as int,
+      appointmentsCount: (map['appointmentsCount'] ?? 0) as int,
+      timeSlots: map['timeSlots'] == null
+          ? null
+          : List<String>.from(map['timeSlots'] as List<dynamic>),
+      createdAt: map['createdAt'] as Timestamp?,
+      updatedAt: map['updatedAt'] as Timestamp?,
     );
   }
 
-  // From Firestore
-  factory DailyAvailabilityModel.fromMap(Map<String, dynamic> map, String documentId) {
-    return DailyAvailabilityModel(
-      id: documentId,
-      doctorId: map['doctorId'] as String,
-      date: (map['date'] as Timestamp).toDate(),
-      status: map['status'] as String? ?? 'unavailable',
-      patientLimit: map['patientLimit'] as int? ?? 20,
-      appointmentsCount: map['appointmentsCount'] as int? ?? 0,
-      availableTimeSlots: List<String>.from(map['availableTimeSlots'] as List? ?? []),
-    );
-  }
-
-  // To Firestore
   Map<String, dynamic> toMap() {
     return {
       'doctorId': doctorId,
       'date': Timestamp.fromDate(date),
+      'dateKey': dateKey,
       'status': status,
       'patientLimit': patientLimit,
       'appointmentsCount': appointmentsCount,
-      'availableTimeSlots': availableTimeSlots,
+      'timeSlots': timeSlots,
+      'createdAt': createdAt,
+      'updatedAt': updatedAt,
     };
   }
 
-  bool isFull() => appointmentsCount >= patientLimit;
-
-  DailyAvailabilityModel copyWith({
-    String? id,
-    String? doctorId,
-    DateTime? date,
-    String? status,
-    int? patientLimit,
-    int? appointmentsCount,
-    List<String>? availableTimeSlots,
-  }) {
-    return DailyAvailabilityModel(
-      id: id ?? this.id,
-      doctorId: doctorId ?? this.doctorId,
-      date: date ?? this.date,
-      status: status ?? this.status,
-      patientLimit: patientLimit ?? this.patientLimit,
-      appointmentsCount: appointmentsCount ?? this.appointmentsCount,
-      availableTimeSlots: availableTimeSlots ?? this.availableTimeSlots,
-    );
+  /// A day is full if:
+  /// - timeSlots is provided AND appointmentsCount >= timeSlots.length
+  /// - else if patientLimit > 0, appointmentsCount >= patientLimit
+  bool isFull() {
+    if (timeSlots != null && timeSlots!.isNotEmpty) {
+      return appointmentsCount >= timeSlots!.length;
+    }
+    if (patientLimit > 0) {
+      return appointmentsCount >= patientLimit;
+    }
+    return false;
   }
-
-  @override
-  List<Object?> get props => [
-    id,
-    doctorId,
-    date,
-    status,
-    patientLimit,
-    appointmentsCount,
-    availableTimeSlots,
-  ];
 }

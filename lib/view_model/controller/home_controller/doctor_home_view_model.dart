@@ -1,180 +1,198 @@
-// view_model/controller/home_controller/doctor_home_view_model.dart
+// lib/view_model/controller/home_controller/doctor_home_view_model.dart
 import 'dart:async';
-import 'package:get/get.dart';
+
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:firebase_auth/firebase_auth.dart';
+import 'package:get/get.dart';
 import 'package:intl/intl.dart';
-import 'package:flutter/foundation.dart';
-
 import '../../../models/doctor/appointment/appointment_model.dart';
-import '../../../services/notification_services/notification_services.dart';
 
 class DoctorHomeViewModel extends GetxController {
-  final FirebaseFirestore _firestore = FirebaseFirestore.instance;
-  final FirebaseAuth _auth = FirebaseAuth.instance;
+  final _db = FirebaseFirestore.instance;
+  final _auth = FirebaseAuth.instance;
 
-  // Reactive state
-  final RxBool isLoading = true.obs;
+  final isLoading = true.obs;
+
   final RxList<Appointment> pendingAppointments = <Appointment>[].obs;
   final RxList<Appointment> upcomingAppointments = <Appointment>[].obs;
   final RxList<Appointment> historyAppointments = <Appointment>[].obs;
 
-  late String doctorId;
-  StreamSubscription<QuerySnapshot>? _appointmentsSubscription;
+  String get formattedToday => DateFormat.yMMMMd().format(DateTime.now());
+
+  Stream<List<Appointment>>? _subStream;
+  Stream<List<Appointment>>? _fallbackTopStream;
+  StreamSubscription? _subListener;
+  StreamSubscription? _topListener;
 
   @override
   void onInit() {
     super.onInit();
-    final user = _auth.currentUser;
-    if (user != null) {
-      doctorId = user.uid;
-      _subscribeToAppointments();
-    } else {
-      Get.snackbar('Error', 'User not authenticated.');
-      isLoading.value = false;
-    }
+    _subscribe();
   }
 
   @override
   void onClose() {
-    _appointmentsSubscription?.cancel();
+    _subListener?.cancel();
+    _topListener?.cancel();
     super.onClose();
   }
 
-  void _subscribeToAppointments() {
-    isLoading.value = true;
-    _appointmentsSubscription = _firestore
-        .collection('appointments')
-        .where('doctorId', isEqualTo: doctorId)
-        .orderBy('createdAt', descending: true)
-        .snapshots()
-        .listen((snapshot) {
-      // Clear all lists before repopulating
-      pendingAppointments.clear();
-      upcomingAppointments.clear();
-      historyAppointments.clear();
+  void _subscribe() {
+    final uid = _auth.currentUser?.uid;
+    if (uid == null) {
+      isLoading.value = false;
+      return;
+    }
 
-      for (var doc in snapshot.docs) {
-        final appointment = Appointment.fromFirestore(doc);
-        if (appointment.status == 'pending') {
-          pendingAppointments.add(appointment);
-        } else if (appointment.status == 'confirmed') {
-          upcomingAppointments.add(appointment);
-        } else {
-          historyAppointments.add(appointment);
-        }
+    _subStream = _db
+        .collection('doctors')
+        .doc(uid)
+        .collection('appointments')
+        .orderBy('createdAt', descending: false) // single-field index
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => Appointment.fromDoc(d)).toList());
+
+    _subListener = _subStream!.listen((list) {
+      _partition(list);
+      isLoading.value = false;
+
+      // If the subcollection is empty (older data might live only in top-level),
+      // start a one-time live fallback to the top-level to avoid blank screens.
+      if (list.isEmpty) {
+        _listenTopLevelOnce(uid);
+      } else {
+        _topListener?.cancel();
       }
+    }, onError: (_) {
       isLoading.value = false;
-    }, onError: (e) {
-      Get.snackbar('Error', 'Failed to fetch appointments: $e');
-      isLoading.value = false;
-      debugPrint("Error fetching appointments: $e");
     });
   }
 
-  Future<void> confirmAppointment(String appointmentId) async {
-    try {
-      await _firestore.collection('appointments').doc(appointmentId).update({
-        'status': 'confirmed',
+  void _listenTopLevelOnce(String uid) {
+    _topListener?.cancel();
+    _fallbackTopStream = _db
+        .collection('appointments')
+        .where('doctorId', isEqualTo: uid)
+        .orderBy('createdAt', descending: false)
+        .snapshots()
+        .map((snap) => snap.docs.map((d) => Appointment.fromDoc(d)).toList());
+
+    _topListener = _fallbackTopStream!.listen((list) {
+      // Only use as a fallback if doctor subcollection is empty
+      if (pendingAppointments.isEmpty &&
+          upcomingAppointments.isEmpty &&
+          historyAppointments.isEmpty) {
+        _partition(list);
+      }
+      isLoading.value = false;
+    }, onError: (_) {
+      isLoading.value = false;
+    });
+  }
+
+  void _partition(List<Appointment> all) {
+    final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
+
+    pendingAppointments.value =
+        all.where((a) => a.status == 'pending').toList();
+
+    upcomingAppointments.value = all.where((a) {
+      final isFutureOrToday =
+      (a.dateKey ?? '').isNotEmpty ? (a.dateKey!.compareTo(todayKey) >= 0) : true;
+      return a.status == 'confirmed' && isFutureOrToday;
+    }).toList();
+
+    historyAppointments.value = all.where((a) {
+      final ended = ['cancelled', 'rejected', 'completed'].contains(a.status);
+      if (ended) return true;
+      // push past confirmed into history if its day is gone
+      final isPast =
+      (a.dateKey ?? '').isNotEmpty ? (a.dateKey!.compareTo(todayKey) < 0) : false;
+      return a.status == 'confirmed' && isPast;
+    }).toList();
+  }
+
+  // ---------- Helpers to write to all mirrors safely ----------
+
+  Future<void> _safeUpdate(Map<String, dynamic> patch, {
+    required DocumentReference ref,
+  }) async {
+    final snap = await ref.get();
+    if (snap.exists) {
+      await ref.update(patch);
+    }
+  }
+
+  Future<void> _updateStatusEverywhere(Appointment a, String status, {String? reason}) async {
+    final patch = <String, dynamic>{
+      'status': status,
+      'updatedAt': FieldValue.serverTimestamp(),
+      if (reason != null) 'cancellationReason': reason,
+    };
+
+    final docRef = _db
+        .collection('doctors')
+        .doc(a.doctorId)
+        .collection('appointments')
+        .doc(a.id);
+
+    final patientRef = _db
+        .collection('patients')
+        .doc(a.patientId)
+        .collection('appointments')
+        .doc(a.id);
+
+    // top-level mirror (optional)
+    final topRef = _db.collection('appointments').doc(a.id);
+
+    await Future.wait([
+      _safeUpdate(patch, ref: docRef),
+      _safeUpdate(patch, ref: patientRef),
+      _safeUpdate(patch, ref: topRef),
+    ]);
+  }
+
+  Future<void> _decrementDailyIfNeeded(Appointment a) async {
+    final statusesToCount = {'pending', 'confirmed'};
+    if (!statusesToCount.contains(a.status)) return;
+
+    final dayRef = _db
+        .collection('doctors')
+        .doc(a.doctorId)
+        .collection('daily_availability')
+        .doc(a.dateKey);
+
+    await _db.runTransaction((tx) async {
+      final snap = await tx.get(dayRef);
+      if (!snap.exists) return;
+      final map = snap.data() as Map<String, dynamic>;
+      final current = (map['appointmentsCount'] as num?)?.toInt() ?? 0;
+      tx.update(dayRef, {
+        'appointmentsCount': current > 0 ? current - 1 : 0,
         'updatedAt': FieldValue.serverTimestamp(),
       });
-      Get.snackbar('Success', 'Appointment confirmed.');
-      _sendAppointmentNotification(appointmentId, 'confirmed');
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to confirm appointment: $e');
-      debugPrint('Error confirming appointment: $e');
-    }
+    });
   }
 
-  Future<void> completeAppointment(String appointmentId) async {
-    try {
-      await _firestore.collection('appointments').doc(appointmentId).update({
-        'status': 'completed',
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      Get.snackbar('Success', 'Appointment marked as completed.');
-      _sendAppointmentNotification(appointmentId, 'completed');
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to complete appointment: $e');
-      debugPrint('Error completing appointment: $e');
-    }
+
+  Future<void> confirmAppointment(Appointment a) async {
+    // move from pending -> confirmed
+    await _updateStatusEverywhere(a, 'confirmed');
   }
 
-  Future<void> rejectAppointment(String appointmentId) async {
-    try {
-      await _firestore.runTransaction((transaction) async {
-        final appointmentRef = _firestore.collection('appointments').doc(appointmentId);
-        final appointmentSnapshot = await transaction.get(appointmentRef);
-
-        if (!appointmentSnapshot.exists) {
-          throw Exception("Appointment not found.");
-        }
-
-        final appointmentData = appointmentSnapshot.data();
-        if (appointmentData == null) {
-          throw Exception("Appointment data is null.");
-        }
-
-        // 1. Get the date to find the correct daily availability document
-        final Timestamp dateTimestamp = appointmentData['date'];
-        final String formattedDate = DateFormat('yyyy-MM-dd').format(dateTimestamp.toDate());
-        final String dailyAvailabilityId = '${doctorId}_$formattedDate';
-        final dailyAvailabilityRef = _firestore.collection('daily_availability').doc(dailyAvailabilityId);
-
-        // 2. Decrement the appointmentsCount using a transaction
-        final dailyAvailabilitySnapshot = await transaction.get(dailyAvailabilityRef);
-        if (dailyAvailabilitySnapshot.exists) {
-          transaction.update(dailyAvailabilityRef, {
-            'appointmentsCount': FieldValue.increment(-1),
-          });
-        }
-
-        // 3. Update the appointment status
-        transaction.update(appointmentRef, {
-          'status': 'rejected', // Use 'rejected' status
-          'updatedAt': FieldValue.serverTimestamp(),
-        });
-      });
-      Get.snackbar('Success', 'Appointment rejected successfully.');
-      _sendAppointmentNotification(appointmentId, 'rejected');
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to reject appointment: $e');
-      debugPrint('Error rejecting appointment: $e');
-    }
+  Future<void> rejectAppointment(Appointment a) async {
+    // free the slot and mark as rejected everywhere
+    await _decrementDailyIfNeeded(a);
+    await _updateStatusEverywhere(a, 'rejected', reason: 'Rejected by doctor');
   }
 
-  Future<void> _sendAppointmentNotification(String appointmentId, String status) async {
-    try {
-      final appointmentDoc = await _firestore.collection('appointments').doc(appointmentId).get();
-      final appointment = Appointment.fromFirestore(appointmentDoc);
-
-      await NotificationService.sendAppointmentNotification(
-        userId: appointment.patientId,
-        title: 'Appointment ${status.capitalizeFirst}',
-        body: 'Your appointment with Dr. ${appointment.doctorName} has been ${status}.',
-        data: {
-          'type': 'appointment_${status}',
-          'appointmentId': appointmentId,
-        },
-      );
-    } catch (e) {
-      debugPrint('Error sending notification: $e');
-    }
+  Future<void> cancelAppointment(Appointment a) async {
+    // doctor-initiated cancellation (similar to reject)
+    await _decrementDailyIfNeeded(a);
+    await _updateStatusEverywhere(a, 'cancelled', reason: 'Cancelled by doctor');
   }
 
-  Future<void> addPrescriptionAndNotes(String appointmentId, String notes, String prescription) async {
-    try {
-      await _firestore.collection('appointments').doc(appointmentId).update({
-        'notes': notes,
-        'prescription': prescription,
-        'updatedAt': FieldValue.serverTimestamp(),
-      });
-      Get.snackbar('Success', 'Notes and prescription added successfully.');
-    } catch (e) {
-      Get.snackbar('Error', 'Failed to add notes and prescription: $e');
-      debugPrint('Error adding notes and prescription: $e');
-    }
+  Future<void> completeAppointment(Appointment a) async {
+    await _updateStatusEverywhere(a, 'completed');
   }
-
-  String get formattedToday => DateFormat('EEEE, MMMM d').format(DateTime.now());
 }

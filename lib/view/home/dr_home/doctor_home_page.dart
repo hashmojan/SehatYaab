@@ -1,14 +1,12 @@
-// view/doctor/doctor_home_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
-import 'package:intl/intl.dart';
-
 import '../../../constants/menu_widget.dart';
 import '../../../res/colors/app_colors.dart';
 import '../../../res/components/cards/appointment_card.dart';
 import '../../../view_model/controller/home_controller/doctor_home_view_model.dart';
 import '../../../models/doctor/appointment/appointment_model.dart';
+import '../../doctor/appointment/availability_manager.dart';
 
 class DoctorHomePage extends StatefulWidget {
   const DoctorHomePage({super.key});
@@ -24,19 +22,10 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
-    controller = Get.find<DoctorHomeViewModel>();
+    controller = Get.isRegistered<DoctorHomeViewModel>()
+        ? Get.find<DoctorHomeViewModel>()
+        : Get.put(DoctorHomeViewModel());
     _tabController = TabController(length: 3, vsync: this);
-
-    // Add a listener to rebuild the tabs when the data changes
-    controller.pendingAppointments.listen((_) {
-      if (mounted) setState(() {});
-    });
-    controller.upcomingAppointments.listen((_) {
-      if (mounted) setState(() {});
-    });
-    controller.historyAppointments.listen((_) {
-      if (mounted) setState(() {});
-    });
   }
 
   @override
@@ -50,16 +39,16 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
     return Scaffold(
       backgroundColor: AppColors.backgroundColor,
       appBar: AppBar(
-        title: Text(
-          'My Appointments',
-          style: GoogleFonts.poppins(
-            color: Colors.white,
-            fontWeight: FontWeight.bold,
-          ),
-        ),
+        title: Text('My Appointments',
+            style: GoogleFonts.poppins(color: Colors.white, fontWeight: FontWeight.bold)),
         backgroundColor: AppColors.secondaryColor,
         elevation: 0,
         actions: [
+          IconButton(
+            icon: const Icon(Icons.event_available, color: Colors.white),
+            onPressed: () => Get.to(() => AvailabilityManagerPage()),
+            tooltip: 'Manage Availability',
+          ),
           IconButton(
             icon: const Icon(Icons.notifications, color: Colors.white),
             onPressed: () => Get.toNamed('/notifications'),
@@ -67,116 +56,81 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
         ],
       ),
       drawer: const MenuWidget(),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16.0),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  controller.formattedToday,
-                  style: GoogleFonts.poppins(
-                    fontSize: 18,
-                    fontWeight: FontWeight.w500,
-                  ),
-                ),
-                Obx(() => Text(
-                  '${controller.upcomingAppointments.length} Upcoming',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    color: AppColors.secondaryColor,
-                  ),
-                )),
+      body: Obx(() {
+        if (controller.isLoading.value) {
+          return const Center(child: CircularProgressIndicator());
+        }
+        return Column(
+          children: [
+            Padding(
+              padding: const EdgeInsets.all(16.0),
+              child: Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
+                Text(controller.formattedToday,
+                    style: GoogleFonts.poppins(fontSize: 18, fontWeight: FontWeight.w500)),
+                Text('${controller.upcomingAppointments.length} Upcoming',
+                    style: GoogleFonts.poppins(fontSize: 16, color: AppColors.secondaryColor)),
+              ]),
+            ),
+            TabBar(
+              controller: _tabController,
+              labelColor: AppColors.secondaryColor,
+              unselectedLabelColor: Colors.grey,
+              tabs: [
+                Obx(() => Tab(text: 'Pending (${controller.pendingAppointments.length})')),
+                Obx(() => Tab(text: 'Upcoming (${controller.upcomingAppointments.length})')),
+                Obx(() => Tab(text: 'History (${controller.historyAppointments.length})')),
               ],
             ),
-          ),
-          Obx(() {
-            if (controller.isLoading.value) {
-              return const Expanded(child: Center(child: CircularProgressIndicator()));
-            }
-
-            return Expanded(
-              child: Column(
+            Expanded(
+              child: TabBarView(
+                controller: _tabController,
                 children: [
-                  TabBar(
-                    controller: _tabController,
-                    labelColor: AppColors.secondaryColor,
-                    unselectedLabelColor: Colors.grey,
-                    tabs: [
-                      Obx(() => Tab(text: 'Pending (${controller.pendingAppointments.length})')),
-                      Obx(() => Tab(text: 'Upcoming (${controller.upcomingAppointments.length})')),
-                      Obx(() => Tab(text: 'History (${controller.historyAppointments.length})')),
-                    ],
-                  ),
-                  Expanded(
-                    child: TabBarView(
-                      controller: _tabController,
-                      children: [
-                        _buildPendingAppointmentList(controller.pendingAppointments),
-                        _buildAppointmentList(controller.upcomingAppointments),
-                        _buildAppointmentList(controller.historyAppointments),
-                      ],
-                    ),
-                  ),
+                  _buildPending(controller.pendingAppointments),
+                  _buildList(controller.upcomingAppointments),
+                  _buildList(controller.historyAppointments),
                 ],
               ),
-            );
-          }),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildAppointmentList(List<Appointment> appointments) {
-    if (appointments.isEmpty) {
-      return Center(
-        child: Text(
-          'No appointments found.',
-          style: GoogleFonts.poppins(),
-        ),
-      );
-    }
-    return ListView.builder(
-      padding: const EdgeInsets.all(8.0),
-      itemCount: appointments.length,
-      itemBuilder: (context, index) {
-        final appointment = appointments[index];
-        return AppointmentCard(
-          appointment: appointment.toMap(),
+            ),
+          ],
         );
-      },
+      }),
     );
   }
 
-  Widget _buildPendingAppointmentList(List<Appointment> appointments) {
-    if (appointments.isEmpty) {
-      return Center(
-        child: Text(
-          'No new appointment requests.',
-          style: GoogleFonts.poppins(),
-        ),
-      );
+  Widget _buildList(List<Appointment> items) {
+    if (items.isEmpty) {
+      return Center(child: Text('No appointments found.', style: GoogleFonts.poppins()));
     }
     return ListView.builder(
       padding: const EdgeInsets.all(8.0),
-      itemCount: appointments.length,
-      itemBuilder: (context, index) {
-        final appointment = appointments[index];
+      itemCount: items.length,
+      itemBuilder: (_, i) => AppointmentCard(appointment: items[i].toMap()),
+    );
+  }
+
+  Widget _buildPending(List<Appointment> items) {
+    if (items.isEmpty) {
+      return Center(child: Text('No new appointment requests.', style: GoogleFonts.poppins()));
+    }
+    return ListView.builder(
+      padding: const EdgeInsets.all(8.0),
+      itemCount: items.length,
+      itemBuilder: (_, i) {
+        final a = items[i];
         return AppointmentCard(
-          appointment: appointment.toMap(),
+          appointment: a.toMap(),
           actions: Row(
             mainAxisSize: MainAxisSize.min,
             children: [
               IconButton(
                 icon: const Icon(Icons.check_circle, color: Colors.green),
-                onPressed: () => controller.confirmAppointment(appointment.id),
-                tooltip: 'Accept Appointment',
+                onPressed: () => controller.confirmAppointment(a),
+                tooltip: 'Accept',
               ),
               IconButton(
                 icon: const Icon(Icons.cancel, color: Colors.red),
-                onPressed: () => controller.rejectAppointment(appointment.id),
-                tooltip: 'Reject Appointment',
+                onPressed: () => controller.rejectAppointment(a),
+                tooltip: 'Reject',
               ),
             ],
           ),

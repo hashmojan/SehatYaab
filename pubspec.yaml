@@ -51,8 +51,6 @@ dependencies:
   #  agora_rtc_engine: ^6.5.0
   flutter_colorpicker: ^1.1.0
   firebase_messaging: ^15.2.4
-  geolocator: ^9.0.0
-  geocoding: ^2.1.0
   googleapis_auth: ^1.6.0
   googleapis: ^11.0.0
   lucide_icons: ^0.257.0

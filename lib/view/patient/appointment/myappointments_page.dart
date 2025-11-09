@@ -1,7 +1,5 @@
-// views/patient/appointments_page.dart
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
-import 'package:intl/intl.dart';
 
 import '../../../res/components/cards/appointment_card.dart';
 import '../../../view_model/controller/appointment_controller/patient_controller/myappointments_controller.dart';
@@ -11,7 +9,6 @@ class AppointmentsPage extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // Inject the controller
     final controller = Get.put(MyAppointmentsController());
 
     return Scaffold(
@@ -31,16 +28,18 @@ class AppointmentsPage extends StatelessWidget {
           padding: const EdgeInsets.all(16),
           itemCount: controller.appointments.length,
           itemBuilder: (context, index) {
-            var appointment = controller.appointments[index];
-            final status = appointment['status'] as String;
+            final appointment = controller.appointments[index];
+            final status = (appointment['status'] as String?) ?? '';
 
             return AppointmentCard(
               appointment: appointment,
-              // The cancel button is only active if the appointment is pending or confirmed
               onCancel: (status == 'pending' || status == 'confirmed')
-                  ? () => controller.cancelAppointment(appointment['id'], appointment['doctorId'])
+                  ? () => controller.cancelAppointment(
+                appointment['id'] as String,
+                appointment['doctorId'] as String,
+              )
                   : null,
-              showQueueInfo: false, // Queue info is no longer relevant
+              showQueueInfo: false,
             );
           },
         );

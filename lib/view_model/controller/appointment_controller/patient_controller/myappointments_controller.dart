@@ -28,21 +28,31 @@ class MyAppointmentsController extends GetxController {
     super.onClose();
   }
 
+  /// LISTEN FROM PATIENT SUBCOLLECTION (no composite index needed)
   void _fetchAppointments() {
-    if (currentUserId == null) {
+    final uid = currentUserId;
+    if (uid == null) {
       isLoading.value = false;
       return;
     }
 
     _appointmentsSubscription = _firestore
+        .collection('patients')
+        .doc(uid)
         .collection('appointments')
-        .where('patientId', isEqualTo: currentUserId)
-        .orderBy('createdAt', descending: true)
+        .orderBy('createdAt', descending: true) // single-field index only
         .snapshots()
         .listen((snapshot) {
-      appointments.assignAll(
-          snapshot.docs.map((doc) => doc.data() as Map<String, dynamic>).toList()
-      );
+      final items = snapshot.docs.map((doc) {
+        final data = doc.data() as Map<String, dynamic>;
+        // ensure we always have an id field
+        return {
+          'id': data['id'] ?? doc.id,
+          ...data,
+        };
+      }).toList();
+
+      appointments.assignAll(items);
       isLoading.value = false;
     }, onError: (error) {
       isLoading.value = false;
@@ -51,48 +61,98 @@ class MyAppointmentsController extends GetxController {
     });
   }
 
+  /// CANCEL across all mirrors + update daily availability at new path
   Future<void> cancelAppointment(String appointmentId, String doctorId) async {
     isCancelling.value = true;
     try {
-      final appointmentRef = _firestore.collection('appointments').doc(appointmentId);
-      final appointmentDoc = await appointmentRef.get();
-      if (!appointmentDoc.exists) {
+      final uid = currentUserId;
+      if (uid == null) throw Exception('Not signed in');
+
+      // Read the patient copy first (authoritative for patient UI)
+      final patientApptRef = _firestore
+          .collection('patients')
+          .doc(uid)
+          .collection('appointments')
+          .doc(appointmentId);
+
+      final patientSnap = await patientApptRef.get();
+      if (!patientSnap.exists) {
         throw Exception('Appointment not found.');
       }
-      final appointmentData = appointmentDoc.data() as Map<String, dynamic>;
+      final appt = patientSnap.data() as Map<String, dynamic>;
+      final DateTime date =
+      appt['date'] is Timestamp ? (appt['date'] as Timestamp).toDate() : DateTime.now();
+      final String dateKey =
+          appt['dateKey'] ?? DateFormat('yyyy-MM-dd').format(date);
 
-      // Get the date from the appointment data to find the correct daily_availability document
-      final date = (appointmentData['date'] as Timestamp).toDate();
-      final dateKey = DateFormat('yyyy-MM-dd').format(date);
-      final dailyAvailabilityId = '${doctorId}_$dateKey';
-      final dailyAvailabilityRef = _firestore.collection('daily_availability').doc(dailyAvailabilityId);
+      // Refs to all mirrors (update if exist; create if you prefer)
+      final topRef = _firestore.collection('appointments').doc(appointmentId);
+      final doctorApptRef = _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('appointments')
+          .doc(appointmentId);
 
-      await _firestore.runTransaction((transaction) async {
-        // Decrement the appointmentsCount for the doctor's daily availability
-        final dailyAvailabilitySnapshot = await transaction.get(dailyAvailabilityRef);
-        if (!dailyAvailabilitySnapshot.exists) {
-          throw Exception('Daily availability record not found.');
+      // New daily availability path (no composite index needed)
+      final dailyRef = _firestore
+          .collection('doctors')
+          .doc(doctorId)
+          .collection('daily_availability')
+          .doc(dateKey);
+
+      await _firestore.runTransaction((tx) async {
+        // decrement daily availability (if exists, and count > 0)
+        final dailySnap = await tx.get(dailyRef);
+        if (dailySnap.exists) {
+          final map = dailySnap.data() as Map<String, dynamic>;
+          final int currentCount = (map['appointmentsCount'] as num?)?.toInt() ?? 0;
+          tx.update(dailyRef, {
+            'appointmentsCount': currentCount > 0 ? currentCount - 1 : 0,
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
         }
 
-        final currentAppointmentsCount = dailyAvailabilitySnapshot.data()?['appointmentsCount'] ?? 0;
-        final newAppointmentsCount = currentAppointmentsCount > 0 ? currentAppointmentsCount - 1 : 0;
-
-        transaction.update(dailyAvailabilityRef, {
-          'appointmentsCount': newAppointmentsCount,
-        });
-
-        // Update the appointment status
-        transaction.update(appointmentRef, {
+        // update patient copy
+        tx.update(patientApptRef, {
           'status': 'cancelled',
           'cancellationReason': 'Cancelled by patient',
           'updatedAt': FieldValue.serverTimestamp(),
         });
+
+        // update doctor copy (if it exists)
+        final dSnap = await tx.get(doctorApptRef);
+        if (dSnap.exists) {
+          tx.update(doctorApptRef, {
+            'status': 'cancelled',
+            'cancellationReason': 'Cancelled by patient',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
+
+        // update top-level mirror (if it exists)
+        final tSnap = await tx.get(topRef);
+        if (tSnap.exists) {
+          tx.update(topRef, {
+            'status': 'cancelled',
+            'cancellationReason': 'Cancelled by patient',
+            'updatedAt': FieldValue.serverTimestamp(),
+          });
+        }
       });
-      Get.snackbar('Success', 'Appointment cancelled successfully.',
-          backgroundColor: Get.theme.primaryColor, colorText: Get.theme.canvasColor);
+
+      Get.snackbar(
+        'Success',
+        'Appointment cancelled successfully.',
+        backgroundColor: Get.theme.primaryColor,
+        colorText: Get.theme.canvasColor,
+      );
     } catch (e) {
-      Get.snackbar('Error', 'Failed to cancel appointment: $e',
-          backgroundColor: Colors.red, colorText: Colors.white);
+      Get.snackbar(
+        'Error',
+        'Failed to cancel appointment: $e',
+        backgroundColor: Colors.red,
+        colorText: Colors.white,
+      );
       debugPrint('Error cancelling appointment: $e');
     } finally {
       isCancelling.value = false;

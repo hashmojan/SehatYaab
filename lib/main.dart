@@ -5,7 +5,7 @@ import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
-// Your app's local imports
+// Your
 import 'package:sehatyab/res/colors/app_colors.dart';
 import 'package:sehatyab/res/routes/routes.dart';
 import 'package:sehatyab/res/routes/routes_name.dart';
