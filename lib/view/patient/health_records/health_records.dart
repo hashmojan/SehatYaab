@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:image_picker/image_picker.dart';
 import 'dart:io';
 import 'package:intl/intl.dart';
+import 'package:sehatyab/res/colors/app_colors.dart';
 
 class PatientHealthRecordsPage extends StatefulWidget {
   @override
@@ -17,6 +18,7 @@ class _PatientHealthRecordsPageState extends State<PatientHealthRecordsPage> {
     return Scaffold(
       appBar: AppBar(
         title: Text('My Health Records'),
+        backgroundColor: AppColors.secondaryColor,
         actions: [
           IconButton(
             icon: Icon(Icons.add),

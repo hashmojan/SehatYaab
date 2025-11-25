@@ -15,6 +15,9 @@ class DoctorSignupViewModel extends GetxController {
   final cityController = TextEditingController();
   final specializationController = TextEditingController();
   final titleController = TextEditingController();
+  final yearsOfExperienceController = TextEditingController(); // NEW
+
+
   final gender = 'male'.obs;
 
   final loading = false.obs;
@@ -27,6 +30,9 @@ class DoctorSignupViewModel extends GetxController {
         cityController.text.isEmpty ||
         specializationController.text.isEmpty ||
         titleController.text.isEmpty ||
+        yearsOfExperienceController.text.isEmpty || // NEW
+
+
         gender.value.isEmpty) {
       Utils.showSnackBar('Error', "Please fill in all the required fields.");
       return;
@@ -52,6 +58,8 @@ class DoctorSignupViewModel extends GetxController {
           city: cityController.text.trim(),
           specialization: specializationController.text.trim(),
           title: titleController.text.trim(),
+          yearsOfExperience: yearsOfExperienceController.text.trim(), // NEW
+
           gender: gender.value,
         );
 
@@ -80,6 +88,8 @@ class DoctorSignupViewModel extends GetxController {
     phoneController.dispose();
     cityController.dispose();
     specializationController.dispose();
+    yearsOfExperienceController.dispose(); // NEW
+
     titleController.dispose();
     super.onClose();
   }

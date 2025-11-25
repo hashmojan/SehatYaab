@@ -12,6 +12,8 @@ class FirestoreService {
     required String specialization,
     required String title,
     required String gender,
+    required String yearsOfExperience,
+
   }) async {
     try {
       await _firestore.collection('doctors').doc(uid).set({
@@ -22,6 +24,7 @@ class FirestoreService {
         'specialization': specialization,
         'title': title,
         'gender': gender,
+        'yearsOfExperience' : yearsOfExperience ,
         'createdAt': FieldValue.serverTimestamp(),
         'verified': false,
       });
@@ -45,6 +48,8 @@ class FirestoreService {
     required String phone,
     required String city,
     required String gender,
+    required String yearsOfExperience,
+
   }) async {
     try {
       await _firestore.collection('patients').doc(uid).set({
@@ -52,6 +57,7 @@ class FirestoreService {
         'name': name,
         'phone': phone,
         'city': city,
+        'yearsOfExperience' : yearsOfExperience ,
         'gender': gender,
         'createdAt': FieldValue.serverTimestamp(),
         'profileComplete': false,

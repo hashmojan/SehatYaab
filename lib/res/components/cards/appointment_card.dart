@@ -1,4 +1,3 @@
-// res/components/cards/appointment_card.dart
 import 'package:cloud_firestore/cloud_firestore.dart';
 import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
@@ -104,9 +103,10 @@ class AppointmentCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
+                // FIXED: Show patient name when in doctor view, doctor name when in patient view
                 isDoctorView
-                    ? data['patientName'] ?? 'Patient'
-                    : data['doctorName'] ?? 'Doctor',
+                    ? data['patientName'] ?? 'Patient Name Not Available'
+                    : data['doctorName'] ?? 'Doctor Name Not Available',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                   fontSize: compactMode ? 14 : null,
@@ -115,10 +115,11 @@ class AppointmentCard extends StatelessWidget {
                 overflow: TextOverflow.ellipsis,
               ),
               if (!compactMode) Text(
+                // FIXED: Show patient info when in doctor view, doctor specialty when in patient view
                 isDoctorView
                     ? data['patientAge'] != null
                     ? 'Age: ${data['patientAge']}'
-                    : ''
+                    : (data['patientEmail'] ?? 'Patient')
                     : data['doctorSpecialty'] ?? 'Specialist',
                 style: TextStyle(
                   color: Colors.grey[600],
@@ -140,11 +141,13 @@ class AppointmentCard extends StatelessWidget {
 
   ImageProvider _getProfileImage(Map<String, dynamic> data) {
     if (isDoctorView) {
-      return data['patientImage'] != null
+      // FIXED: Use patient image in doctor view
+      return data['patientImage'] != null && data['patientImage'].isNotEmpty
           ? NetworkImage(data['patientImage']!)
           : const AssetImage('assets/default_patient.png') as ImageProvider;
     } else {
-      return data['doctorImage'] != null
+      // Use doctor image in patient view
+      return data['doctorImage'] != null && data['doctorImage'].isNotEmpty
           ? NetworkImage(data['doctorImage']!)
           : const AssetImage('assets/default_doctor.png') as ImageProvider;
     }
@@ -190,7 +193,7 @@ class AppointmentCard extends StatelessWidget {
         ),
         const SizedBox(width: 8),
         Text(
-          data['time'] ?? 'Time not specified',
+          data['timeSlot'] ?? 'Time not specified',
           style: theme.textTheme.bodyMedium?.copyWith(
             fontSize: compactMode ? 13 : null,
             color: theme.textTheme.bodySmall?.color,

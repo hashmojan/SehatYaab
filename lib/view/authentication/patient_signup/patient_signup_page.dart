@@ -7,7 +7,7 @@ import '../../../res/colors/app_colors.dart';
 import '../../../res/components/input_field.dart';
 import '../../../res/components/round_button.dart';
 import '../../../res/device_size/device_size.dart';
-import '../../../view_model/controller/authentication_controller/patient_signup_view_model.dart'; // Assuming you'll create this
+import '../../../view_model/controller/authentication_controller/patient_signup_view_model.dart';
 
 class PatientSignupPage extends StatefulWidget {
   const PatientSignupPage({super.key});
@@ -19,20 +19,22 @@ class PatientSignupPage extends StatefulWidget {
 class _PatientSignupPageState extends State<PatientSignupPage> with SingleTickerProviderStateMixin {
   final _formkey = GlobalKey<FormState>();
   late AnimationController _animationController;
-  final patientSignupVM = Get.put(PatientSignupViewModel()); // Initialize the patient signup view model
+  final patientSignupVM = Get.put(PatientSignupViewModel());
+  final _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _animationController = AnimationController(
       vsync: this,
-      duration: const Duration(milliseconds: 1000),
+      duration: const Duration(milliseconds: 1200),
     )..forward();
   }
 
   @override
   void dispose() {
     _animationController.dispose();
+    _scrollController.dispose();
     super.dispose();
   }
 
@@ -45,9 +47,16 @@ class _PatientSignupPageState extends State<PatientSignupPage> with SingleTicker
       appBar: AppBar(
         backgroundColor: Colors.transparent,
         elevation: 0,
-        leading: IconButton(
-          icon: const Icon(LucideIcons.arrowLeft, color: Colors.white),
-          onPressed: () => Get.back(),
+        leading: Container(
+          margin: const EdgeInsets.all(8),
+          decoration: BoxDecoration(
+            color: Colors.white.withOpacity(0.2),
+            borderRadius: BorderRadius.circular(12),
+          ),
+          child: IconButton(
+            icon: const Icon(LucideIcons.arrowLeft, color: Colors.white, size: 20),
+            onPressed: () => Get.back(),
+          ),
         ),
       ),
       body: Container(
@@ -55,36 +64,76 @@ class _PatientSignupPageState extends State<PatientSignupPage> with SingleTicker
         height: double.infinity,
         decoration: BoxDecoration(
           gradient: LinearGradient(
-            colors: [AppColors.primaryColor, AppColors.secondaryColor],
+            colors: [
+              AppColors.primaryColor.withOpacity(0.95),
+              AppColors.secondaryColor.withOpacity(0.95),
+              Colors.blue.shade900.withOpacity(0.9),
+            ],
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
+            stops: const [0.0, 0.5, 1.0],
           ),
         ),
-        child: Center(
-          child: SingleChildScrollView(
-            child: Padding(
-              padding: const EdgeInsets.all(10.0),
-              child: isWeb
-                  ? Container(
-                width: 400,
-                padding: const EdgeInsets.all(20),
+        child: Stack(
+          children: [
+            // Background decorative elements
+            Positioned(
+              top: -50,
+              right: -50,
+              child: Container(
+                width: 200,
+                height: 200,
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.1),
-                  borderRadius: BorderRadius.circular(15),
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withOpacity(0.2),
-                      blurRadius: 10,
-                      spreadRadius: 2,
-                      offset: const Offset(0, 4),
-                    ),
-                  ],
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
                 ),
-                child: _buildPatientSignupForm(context),
-              )
-                  : _buildPatientSignupForm(context),
+              ),
             ),
-          ),
+            Positioned(
+              bottom: -80,
+              left: -80,
+              child: Container(
+                width: 250,
+                height: 250,
+                decoration: BoxDecoration(
+                  shape: BoxShape.circle,
+                  color: Colors.white.withOpacity(0.05),
+                ),
+              ),
+            ),
+
+            Center(
+              child: SingleChildScrollView(
+                controller: _scrollController,
+                child: Padding(
+                  padding: const EdgeInsets.all(20.0),
+                  child: isWeb
+                      ? Container(
+                    width: 500,
+                    padding: const EdgeInsets.all(30),
+                    decoration: BoxDecoration(
+                      color: Colors.white.withOpacity(0.1),
+                      borderRadius: BorderRadius.circular(25),
+                      boxShadow: [
+                        BoxShadow(
+                          color: Colors.black.withOpacity(0.3),
+                          blurRadius: 20,
+                          spreadRadius: 5,
+                          offset: const Offset(0, 10),
+                        ),
+                      ],
+                      border: Border.all(
+                        color: Colors.white.withOpacity(0.2),
+                        width: 1,
+                      ),
+                    ),
+                    child: _buildPatientSignupForm(context),
+                  )
+                      : _buildPatientSignupForm(context),
+                ),
+              ),
+            ),
+          ],
         ),
       ),
     );
@@ -97,54 +146,78 @@ class _PatientSignupPageState extends State<PatientSignupPage> with SingleTicker
         mainAxisAlignment: MainAxisAlignment.center,
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
+          // Header Section
           ScaleTransition(
             scale: CurvedAnimation(
               parent: _animationController,
-              curve: Curves.easeOutBack,
+              curve: Curves.elasticOut,
             ),
-            child: Center(
-              child: Text(
-                'Patient Sign Up',
-                style: GoogleFonts.poppins(
-                  fontSize: 32,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    color: Colors.white.withOpacity(0.1),
+                    border: Border.all(color: Colors.white.withOpacity(0.3), width: 2),
+                  ),
+                  child: const Icon(
+                    LucideIcons.heart,
+                    size: 40,
+                    color: Colors.white,
+                  ),
                 ),
-                textAlign: TextAlign.center,
-              ),
+                const SizedBox(height: 20),
+                Text(
+                  'Start Your Health Journey',
+                  style: GoogleFonts.poppins(
+                    fontSize: 28,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                    height: 1.2,
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+                const SizedBox(height: 8),
+                Text(
+                  'Create your patient account and access quality healthcare',
+                  style: GoogleFonts.poppins(
+                    fontSize: 14,
+                    color: Colors.white.withOpacity(0.8),
+                  ),
+                  textAlign: TextAlign.center,
+                ),
+              ],
             ),
           ),
+
+          SizedBox(height: height * .04),
+
+          // Personal Information Section
+          _buildSectionHeader('Personal Information'),
           SizedBox(height: height * .02),
-          InputField(
+
+          _buildAnimatedInputField(
+            index: 0,
             controller: patientSignupVM.nameController,
-            fillColor: Colors.white.withOpacity(0.2),
-            errorcolor: Colors.red,
-            hintText: 'Name',
-            prefixIcon: const Icon(
-              LucideIcons.user,
-              color: Colors.white,
-            ),
-            prefixIconWidth: 80.0,
-            validator: (String? value) {
-              if (value!.isEmpty) {
-                return 'Please enter your name';
-              }
-              return null;
-            },
+            hintText: 'Full Name',
+            icon: LucideIcons.user,
+            validator: (value) => value!.isEmpty ? 'Please enter your name' : null,
           ),
+
           SizedBox(height: height * .02),
-          InputField(
+
+          // Contact Information Section
+          _buildSectionHeader('Contact Information'),
+          SizedBox(height: height * .02),
+
+          _buildAnimatedInputField(
+            index: 1,
             controller: patientSignupVM.phoneController,
-            fillColor: Colors.white.withOpacity(0.2),
-            errorcolor: Colors.red,
-            hintText: 'eg. 03001234567',
-            prefixIcon: const Icon(
-              LucideIcons.phone,
-              color: Colors.white,
-            ),
-            prefixIconWidth: 80.0,
+            hintText: 'Phone Number (e.g., 03001234567)',
+            icon: LucideIcons.phone,
             keyboardType: TextInputType.phone,
-            validator: (String? value) {
+            validator: (value) {
               if (value!.isEmpty || !RegExp(r'^03\d{9}$').hasMatch(value)) {
                 return 'Invalid phone number (e.g., 03xxxxxxxxx)';
               }
@@ -152,36 +225,28 @@ class _PatientSignupPageState extends State<PatientSignupPage> with SingleTicker
             },
           ),
           SizedBox(height: height * .02),
-          InputField(
+
+          _buildAnimatedInputField(
+            index: 2,
             controller: patientSignupVM.emailController,
-            fillColor: Colors.white.withOpacity(0.2),
-            errorcolor: Colors.red,
-            hintText: 'Email',
-            prefixIcon: const Icon(
-              LucideIcons.mail,
-              color: Colors.white,
-            ),
-            prefixIconWidth: 80.0,
-            validator: (String? value) {
+            hintText: 'Email Address',
+            icon: LucideIcons.mail,
+            validator: (value) {
               if (value!.isEmpty || !value.isEmail) {
-                return 'Invalid email';
+                return 'Invalid email address';
               }
               return null;
             },
           ),
           SizedBox(height: height * .02),
-          InputField(
+
+          _buildAnimatedInputField(
+            index: 3,
             controller: patientSignupVM.passwordController,
-            fillColor: Colors.white.withOpacity(0.2),
-            errorcolor: Colors.red,
             hintText: 'Password',
+            icon: LucideIcons.lock,
             obscureText: true,
-            prefixIcon: const Icon(
-              LucideIcons.lock,
-              color: Colors.white,
-            ),
-            prefixIconWidth: 80.0,
-            validator: (String? value) {
+            validator: (value) {
               if (value == null || value.isEmpty) {
                 return 'Please enter your password';
               }
@@ -191,69 +256,88 @@ class _PatientSignupPageState extends State<PatientSignupPage> with SingleTicker
               return null;
             },
           ),
+
           SizedBox(height: height * .02),
-          InputField(
+
+          // Location Information Section
+          _buildSectionHeader('Location Information'),
+          SizedBox(height: height * .02),
+
+          _buildAnimatedInputField(
+            index: 4,
             controller: patientSignupVM.cityController,
-            fillColor: Colors.white.withOpacity(0.2),
-            errorcolor: Colors.red,
             hintText: 'City',
-            prefixIcon: const Icon(
-              LucideIcons.mapPin,
-              color: Colors.white,
-            ),
-            prefixIconWidth: 80.0,
-            validator: (String? value) {
-              if (value!.isEmpty) {
-                return 'Please enter your city';
-              }
-              return null;
-            },
+            icon: LucideIcons.mapPin,
+            validator: (value) => value!.isEmpty ? 'Please enter your city' : null,
           ),
+
           SizedBox(height: height * .02),
-          Row(
-            children: [
-              Text(
-                'Gender',
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  color: Colors.white,
-                ),
+
+          // Gender Selection
+          SlideTransition(
+            position: Tween<Offset>(
+              begin: const Offset(0.5, 0),
+              end: Offset.zero,
+            ).animate(CurvedAnimation(
+              parent: _animationController,
+              curve: const Interval(0.7, 1.0, curve: Curves.easeOut),
+            )),
+            child: Container(
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: Colors.white.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: Colors.white.withOpacity(0.2)),
               ),
-              const SizedBox(width: 20),
-              Obx(() => Row(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Radio<String>(
-                    value: 'male',
-                    groupValue: patientSignupVM.gender.value,
-                    onChanged: (value) => patientSignupVM.gender.value = value!,
-                    fillColor: MaterialStateProperty.all(Colors.white),
-                  ),
                   Text(
-                    'Male',
-                    style: GoogleFonts.poppins(color: Colors.white),
+                    'Gender',
+                    style: GoogleFonts.poppins(
+                      fontSize: 16,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                  const SizedBox(width: 10),
-                  Radio<String>(
-                    value: 'female',
-                    groupValue: patientSignupVM.gender.value,
-                    onChanged: (value) => patientSignupVM.gender.value = value!,
-                    fillColor: MaterialStateProperty.all(Colors.white),
-                  ),
-                  Text(
-                    'Female',
-                    style: GoogleFonts.poppins(color: Colors.white),
-                  ),
+                  const SizedBox(height: 12),
+                  Obx(() => Row(
+                    children: [
+                      _buildGenderOption(
+                        value: 'male',
+                        label: 'Male',
+                        icon: LucideIcons.user,
+                        isSelected: patientSignupVM.gender.value == 'male',
+                        onTap: () => patientSignupVM.gender.value = 'male',
+                      ),
+                      const SizedBox(width: 16),
+                      _buildGenderOption(
+                        value: 'female',
+                        label: 'Female',
+                        icon: LucideIcons.user,
+                        isSelected: patientSignupVM.gender.value == 'female',
+                        onTap: () => patientSignupVM.gender.value = 'female',
+                      ),
+                    ],
+                  )),
                 ],
-              )),
-            ],
+              ),
+            ),
           ),
-          SizedBox(height: height * .03),
-          Center(
+
+          SizedBox(height: height * .04),
+
+          // Sign Up Button
+          ScaleTransition(
+            scale: CurvedAnimation(
+              parent: _animationController,
+              curve: const Interval(0.8, 1.0, curve: Curves.elasticOut),
+            ),
             child: Obx(() => RoundButton(
-              title: 'SIGN UP',
+              title: 'CREATE PATIENT ACCOUNT',
               width: double.infinity,
-              buttonColor: AppColors.darkGreen,
-              textColor: Colors.white,
+              buttonColor: Colors.white,
+              textColor: AppColors.primaryColor,
               onPress: () {
                 if (_formkey.currentState!.validate()) {
                   patientSignupVM.loading.value = true;
@@ -264,38 +348,161 @@ class _PatientSignupPageState extends State<PatientSignupPage> with SingleTicker
                   print('Password: ${patientSignupVM.passwordController.value.text}');
                   print('City: ${patientSignupVM.cityController.value.text}');
                   print('Gender: ${patientSignupVM.gender.value}');
-                  patientSignupVM.signUpPatient(); // Example function
+                  patientSignupVM.signUpPatient();
                 }
               },
               loading: patientSignupVM.loading.value,
             )),
           ),
+
           SizedBox(height: height * .03),
-          Row(
+
+          // Login Link
+          FadeTransition(
+            opacity: CurvedAnimation(
+              parent: _animationController,
+              curve: const Interval(0.9, 1.0),
+            ),
+            child: Center(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    "Already have a Patient Account? ",
+                    style: GoogleFonts.poppins(
+                      fontSize: 14,
+                      color: Colors.white.withOpacity(0.8),
+                    ),
+                  ),
+                  GestureDetector(
+                    onTap: () => Get.toNamed(RouteName.loginPage),
+                    child: Text(
+                      'Login Here',
+                      style: GoogleFonts.poppins(
+                        fontSize: 14,
+                        color: Colors.white,
+                        fontWeight: FontWeight.bold,
+                        decoration: TextDecoration.underline,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildSectionHeader(String title) {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(-0.5, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _animationController,
+        curve: Curves.easeOut,
+      )),
+      child: Text(
+        title,
+        style: GoogleFonts.poppins(
+          fontSize: 18,
+          fontWeight: FontWeight.w600,
+          color: Colors.white,
+        ),
+      ),
+    );
+  }
+
+  Widget _buildAnimatedInputField({
+    required int index,
+    required TextEditingController controller,
+    required String hintText,
+    required IconData icon,
+    bool obscureText = false,
+    TextInputType? keyboardType,
+    String? Function(String?)? validator,
+  }) {
+    return SlideTransition(
+      position: Tween<Offset>(
+        begin: const Offset(0.5, 0),
+        end: Offset.zero,
+      ).animate(CurvedAnimation(
+        parent: _animationController,
+        curve: Interval(0.1 + (index * 0.1), 1.0, curve: Curves.easeOut),
+      )),
+      child: FadeTransition(
+        opacity: CurvedAnimation(
+          parent: _animationController,
+          curve: Interval(0.1 + (index * 0.1), 1.0),
+        ),
+        child: Container(
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            boxShadow: [
+              BoxShadow(
+                color: Colors.black.withOpacity(0.1),
+                blurRadius: 5,
+                offset: const Offset(0, 2),
+              ),
+            ],
+          ),
+          child: InputField(
+            controller: controller,
+            fillColor: Colors.white.withOpacity(0.15),
+            errorcolor: Colors.orange.shade300,
+            hintText: hintText,
+            prefixIcon: Icon(icon, color: Colors.white.withOpacity(0.8)),
+            prefixIconWidth: 80.0,
+            obscureText: obscureText,
+            keyboardType: keyboardType,
+            validator: validator,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildGenderOption({
+    required String value,
+    required String label,
+    required IconData icon,
+    required bool isSelected,
+    required VoidCallback onTap,
+  }) {
+    return Expanded(
+      child: GestureDetector(
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: isSelected ? Colors.white.withOpacity(0.2) : Colors.transparent,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(
+              color: isSelected ? Colors.white : Colors.white.withOpacity(0.3),
+              width: isSelected ? 2 : 1,
+            ),
+          ),
+          child: Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
-              Text(
-                "Already have a Patient Account? ",
-                style: GoogleFonts.poppins(
-                  fontSize: 16,
-                  color: Colors.white,
-                ),
+              Icon(
+                icon,
+                size: 16,
+                color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
               ),
-              GestureDetector(
-                onTap: () => Get.toNamed(RouteName.loginPage), // Assuming you have a general login page
-                child: Text(
-                  'Login',
-                  style: GoogleFonts.poppins(
-                    fontSize: 16,
-                    color: AppColors.white,
-                    fontWeight: FontWeight.bold,
-                    decoration: TextDecoration.underline,
-                  ),
+              const SizedBox(width: 8),
+              Text(
+                label,
+                style: GoogleFonts.poppins(
+                  color: isSelected ? Colors.white : Colors.white.withOpacity(0.7),
+                  fontWeight: isSelected ? FontWeight.w600 : FontWeight.normal,
                 ),
               ),
             ],
           ),
-        ],
+        ),
       ),
     );
   }

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:sehatyab/res/colors/app_colors.dart';
 
 import '../../../res/components/cards/appointment_card.dart';
 import '../../../view_model/controller/appointment_controller/patient_controller/myappointments_controller.dart';
@@ -13,7 +14,8 @@ class AppointmentsPage extends StatelessWidget {
 
     return Scaffold(
       appBar: AppBar(
-        title: const Text('My Appointments'),
+          title: const Text('My Appointments'),
+          backgroundColor: AppColors.secondaryColor
       ),
       body: Obx(() {
         if (controller.isLoading.value) {
@@ -33,6 +35,7 @@ class AppointmentsPage extends StatelessWidget {
 
             return AppointmentCard(
               appointment: appointment,
+              isDoctorView: false, // FIXED: Explicitly set isDoctorView to false for patient view
               onCancel: (status == 'pending' || status == 'confirmed')
                   ? () => controller.cancelAppointment(
                 appointment['id'] as String,

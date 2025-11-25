@@ -320,6 +320,8 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
       appBar: AppBar(
         title: Text('Book with Dr. ${widget.doctor.name}'),
         centerTitle: true,
+        backgroundColor: AppColors.lightSecondary,
+
       ),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -376,7 +378,7 @@ class _AppointmentBookingPageState extends State<AppointmentBookingPage> {
                   Row(
                     children: [
                       const Icon(Icons.star, color: Colors.amber, size: 20),
-                      Text(' ${widget.doctor.rating.toStringAsFixed(1)}'),
+                      Text(' ${widget.doctor.ratingAvg}'),
                       const SizedBox(width: 16),
                       const Icon(Icons.medical_services, color: Colors.red, size: 20),
                       Text(' ${widget.doctor.experience} yrs exp'),

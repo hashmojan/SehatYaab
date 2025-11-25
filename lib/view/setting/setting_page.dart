@@ -72,7 +72,7 @@ class _SettingsScreenState extends State<SettingsScreen> with SingleTickerProvid
     return Scaffold(
       // extendBodyBehindAppBar: true,
       appBar: AppBar(
-        // backgroundColor: Colors.transparent,
+        backgroundColor: AppColors.secondaryColor,
         elevation: 0,
         title: Text(
           "App Settings",

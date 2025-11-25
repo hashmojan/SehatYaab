@@ -104,7 +104,10 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
     return ListView.builder(
       padding: const EdgeInsets.all(8.0),
       itemCount: items.length,
-      itemBuilder: (_, i) => AppointmentCard(appointment: items[i].toMap()),
+      itemBuilder: (_, i) => AppointmentCard(
+        appointment: items[i].toMap(),
+        isDoctorView: true, // FIXED: Set isDoctorView to true for doctor's home page
+      ),
     );
   }
 
@@ -119,6 +122,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
         final a = items[i];
         return AppointmentCard(
           appointment: a.toMap(),
+          isDoctorView: true, // FIXED: Set isDoctorView to true for doctor's home page
           actions: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

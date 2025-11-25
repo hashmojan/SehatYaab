@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:sehatyab/res/colors/app_colors.dart';
 import 'package:table_calendar/table_calendar.dart';
 import 'package:intl/intl.dart';
 import '../../../models/doctor/appointment/availability_model.dart';
@@ -29,6 +30,7 @@ class AvailabilityManagerPage extends StatelessWidget {
     return Scaffold(
       appBar: AppBar(
         title: const Text('Manage Availability'),
+        backgroundColor: AppColors.secondaryColor,
         centerTitle: true,
         actions: [
           IconButton(
