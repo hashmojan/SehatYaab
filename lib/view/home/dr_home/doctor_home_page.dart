@@ -22,15 +22,25 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
   @override
   void initState() {
     super.initState();
+    // Use Get.put if not registered, or Get.find if it is.
     controller = Get.isRegistered<DoctorHomeViewModel>()
         ? Get.find<DoctorHomeViewModel>()
         : Get.put(DoctorHomeViewModel());
+
+    // Call refreshData() here to ensure the latest doctor's data is loaded
+    // even if the ViewModel instance was reused from a previous login.
+    controller.refreshData();
+
     _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
   void dispose() {
     _tabController.dispose();
+    // IMPORTANT: If you want the ViewModel to be completely destroyed when
+    // the user navigates away (e.g., they log out), uncomment the line below.
+    // If you always want to reuse the same instance, keep it commented.
+    // Get.delete<DoctorHomeViewModel>();
     super.dispose();
   }
 
@@ -106,7 +116,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
       itemCount: items.length,
       itemBuilder: (_, i) => AppointmentCard(
         appointment: items[i].toMap(),
-        isDoctorView: true, // FIXED: Set isDoctorView to true for doctor's home page
+        isDoctorView: true,
       ),
     );
   }
@@ -122,7 +132,7 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
         final a = items[i];
         return AppointmentCard(
           appointment: a.toMap(),
-          isDoctorView: true, // FIXED: Set isDoctorView to true for doctor's home page
+          isDoctorView: true,
           actions: Row(
             mainAxisSize: MainAxisSize.min,
             children: [

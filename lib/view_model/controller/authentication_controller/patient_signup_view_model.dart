@@ -12,7 +12,6 @@ class PatientSignupViewModel extends GetxController {
   final nameController = TextEditingController();
   final phoneController = TextEditingController();
   final cityController = TextEditingController();
-  final yearsOfExperienceController = TextEditingController();
   final gender = 'male'.obs;
 
   final loading = false.obs;
@@ -23,7 +22,6 @@ class PatientSignupViewModel extends GetxController {
         nameController.text.isEmpty ||
         phoneController.text.isEmpty ||
         cityController.text.isEmpty ||
-        yearsOfExperienceController.text.isEmpty ||
         gender.value.isEmpty) {
       Utils.showSnackBar('Error', "Please fill in all the required fields.");
       return;
@@ -48,8 +46,6 @@ class PatientSignupViewModel extends GetxController {
           phone: phoneController.text.trim(),
           city: cityController.text.trim(),
           gender: gender.value,
-          yearsOfExperience: yearsOfExperienceController.text.trim(),
-
         );
 
         loading.value = false;

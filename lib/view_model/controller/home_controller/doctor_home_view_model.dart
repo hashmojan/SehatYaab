@@ -1,4 +1,3 @@
-// lib/view_model/controller/home_controller/doctor_home_view_model.dart
 import 'dart:async';
 
 import 'package:cloud_firestore/cloud_firestore.dart';
@@ -11,7 +10,8 @@ class DoctorHomeViewModel extends GetxController {
   final _db = FirebaseFirestore.instance;
   final _auth = FirebaseAuth.instance;
 
-  final isLoading = true.obs;
+  // Set to false initially, refreshData will set it to true when loading starts
+  final isLoading = false.obs;
 
   final RxList<Appointment> pendingAppointments = <Appointment>[].obs;
   final RxList<Appointment> upcomingAppointments = <Appointment>[].obs;
@@ -19,49 +19,72 @@ class DoctorHomeViewModel extends GetxController {
 
   String get formattedToday => DateFormat.yMMMMd().format(DateTime.now());
 
-  Stream<List<Appointment>>? _subStream;
-  Stream<List<Appointment>>? _fallbackTopStream;
   StreamSubscription? _subListener;
   StreamSubscription? _topListener;
 
+  // Use onReady to ensure the view is ready before the initial data fetch
   @override
-  void onInit() {
-    super.onInit();
-    _subscribe();
+  void onReady() {
+    refreshData();
+    super.onReady();
   }
 
   @override
   void onClose() {
-    _subListener?.cancel();
-    _topListener?.cancel();
+    _cancelListeners();
+    // It's generally good practice to explicitly delete the controller 
+    // if it's only needed for the logged-in session, 
+    // but the calling page handles that best (see DoctorHomePage fix).
     super.onClose();
   }
 
-  void _subscribe() {
+  /// Cancels all active Firestore stream listeners.
+  void _cancelListeners() {
+    _subListener?.cancel();
+    _topListener?.cancel();
+    _subListener = null;
+    _topListener = null;
+    // Clear data lists when listeners are cancelled (e.g., on logout)
+    pendingAppointments.clear();
+    upcomingAppointments.clear();
+    historyAppointments.clear();
+  }
+
+  /// Refreshes the appointment data based on the currently logged-in doctor.
+  void refreshData() {
     final uid = _auth.currentUser?.uid;
+
+    // Clear old data and listeners first
+    _cancelListeners();
+
     if (uid == null) {
       isLoading.value = false;
       return;
     }
 
-    _subStream = _db
+    isLoading.value = true;
+    _subscribe(uid); // Start subscription with the current UID
+  }
+
+  void _subscribe(String uid) {
+    final subStream = _db
         .collection('doctors')
         .doc(uid)
         .collection('appointments')
-        .orderBy('createdAt', descending: false) // single-field index
+        .orderBy('createdAt', descending: false)
         .snapshots()
         .map((snap) => snap.docs.map((d) => Appointment.fromDoc(d)).toList());
 
-    _subListener = _subStream!.listen((list) {
+    _subListener = subStream.listen((list) {
       _partition(list);
       isLoading.value = false;
 
-      // If the subcollection is empty (older data might live only in top-level),
-      // start a one-time live fallback to the top-level to avoid blank screens.
+      // Fallback logic
       if (list.isEmpty) {
         _listenTopLevelOnce(uid);
       } else {
         _topListener?.cancel();
+        _topListener = null;
       }
     }, onError: (_) {
       isLoading.value = false;
@@ -70,15 +93,16 @@ class DoctorHomeViewModel extends GetxController {
 
   void _listenTopLevelOnce(String uid) {
     _topListener?.cancel();
-    _fallbackTopStream = _db
+
+    final fallbackTopStream = _db
         .collection('appointments')
         .where('doctorId', isEqualTo: uid)
         .orderBy('createdAt', descending: false)
         .snapshots()
         .map((snap) => snap.docs.map((d) => Appointment.fromDoc(d)).toList());
 
-    _topListener = _fallbackTopStream!.listen((list) {
-      // Only use as a fallback if doctor subcollection is empty
+    _topListener = fallbackTopStream.listen((list) {
+      // Only use as a fallback if the doctor subcollection is truly empty
       if (pendingAppointments.isEmpty &&
           upcomingAppointments.isEmpty &&
           historyAppointments.isEmpty) {
@@ -105,6 +129,7 @@ class DoctorHomeViewModel extends GetxController {
     historyAppointments.value = all.where((a) {
       final ended = ['cancelled', 'rejected', 'completed'].contains(a.status);
       if (ended) return true;
+
       // push past confirmed into history if its day is gone
       final isPast =
       (a.dateKey ?? '').isNotEmpty ? (a.dateKey!.compareTo(todayKey) < 0) : false;
@@ -176,18 +201,15 @@ class DoctorHomeViewModel extends GetxController {
 
 
   Future<void> confirmAppointment(Appointment a) async {
-    // move from pending -> confirmed
     await _updateStatusEverywhere(a, 'confirmed');
   }
 
   Future<void> rejectAppointment(Appointment a) async {
-    // free the slot and mark as rejected everywhere
     await _decrementDailyIfNeeded(a);
     await _updateStatusEverywhere(a, 'rejected', reason: 'Rejected by doctor');
   }
 
   Future<void> cancelAppointment(Appointment a) async {
-    // doctor-initiated cancellation (similar to reject)
     await _decrementDailyIfNeeded(a);
     await _updateStatusEverywhere(a, 'cancelled', reason: 'Cancelled by doctor');
   }

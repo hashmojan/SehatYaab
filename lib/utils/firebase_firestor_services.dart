@@ -48,7 +48,7 @@ class FirestoreService {
     required String phone,
     required String city,
     required String gender,
-    required String yearsOfExperience,
+
 
   }) async {
     try {
@@ -57,7 +57,7 @@ class FirestoreService {
         'name': name,
         'phone': phone,
         'city': city,
-        'yearsOfExperience' : yearsOfExperience ,
+
         'gender': gender,
         'createdAt': FieldValue.serverTimestamp(),
         'profileComplete': false,

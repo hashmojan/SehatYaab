@@ -68,7 +68,7 @@ class _PatientHomePageState extends State<PatientHomePage> {
             'ratingAvg': ratingAvg,
             'ratingCount': ratingCount,
             'rating': legacyRating,
-            'experience': data['experience'] ?? 0,
+            'yearsOfExperience': data['yearsOfExperience'] ?? 0,
             'city': data['city'] ?? 'Unknown location',
           };
         }).toList();
@@ -345,7 +345,7 @@ class _PatientHomePageState extends State<PatientHomePage> {
                             const Icon(Icons.work, color: Colors.blue, size: 16),
                             const SizedBox(width: 4),
                             Text(
-                              '${doctor['experience']?.toString() ?? '0'} yrs',
+                              '${doctor['yearsOfExperience']?.toString() ?? '0'} yrs',
                               style: GoogleFonts.poppins(fontSize: 14),
                             ),
                           ],
