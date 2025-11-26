@@ -3,8 +3,10 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:lucide_icons/lucide_icons.dart';
+
 import '../res/colors/app_colors.dart';
 import '../res/routes/routes_name.dart';
+import '../view/all_chats/all_chats.dart';
 import '../view/patient/appointment/myappointments_page.dart';
 import '../view/patient/health_records/health_records.dart';
 import '../view/profile/profile_controller.dart';
@@ -16,7 +18,8 @@ class MenuWidget extends StatefulWidget {
   State<MenuWidget> createState() => _MenuWidgetState();
 }
 
-class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateMixin {
+class _MenuWidgetState extends State<MenuWidget>
+    with SingleTickerProviderStateMixin {
   late AnimationController animationController;
   final ProfileController profileController = Get.put(ProfileController());
 
@@ -52,15 +55,16 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
                   : (profileController.profilePicURL.value.isNotEmpty
                   ? CircleAvatar(
                 radius: 28,
-                backgroundImage: NetworkImage(profileController.profilePicURL.value),
+                backgroundImage: NetworkImage(
+                    profileController.profilePicURL.value),
               )
-                  : const Icon(LucideIcons.user, size: 30, color: Colors.white)),
+                  : const Icon(
+                LucideIcons.user,
+                size: 30,
+                color: Colors.white,
+              )),
             ),
-
-
-
           ],
-
         ),
         const SizedBox(width: 16),
         // User Name and Email
@@ -68,7 +72,6 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-
               Text(
                 profileController.userName.value,
                 style: GoogleFonts.poppins(
@@ -91,17 +94,19 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
               ),
               if (profileController.userType.value != null)
                 Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 8, vertical: 4),
                   decoration: BoxDecoration(
-                    color: profileController.userType.value == 'Doctor'
+                    color:
+                    profileController.userType.value == 'Doctor'
                         ? Colors.blue
                         : Colors.green,
                     borderRadius: BorderRadius.circular(12),
                   ),
-
                   child: Text(
-
-                    profileController.userType.value == 'Doctor' ? 'Doctor' : 'Patient',
+                    profileController.userType.value == 'Doctor'
+                        ? 'Doctor'
+                        : 'Patient',
                     style: GoogleFonts.poppins(
                       color: Colors.white,
                       fontSize: 10,
@@ -111,7 +116,8 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
                 ),
               // Show specialization for doctors
               if (profileController.userType.value == 'Doctor' &&
-                  profileController.userSpecialization.value.isNotEmpty)
+                  profileController
+                      .userSpecialization.value.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(top: 4),
                   child: Text(
@@ -149,9 +155,10 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
           ),
           // Common items for both roles
           _buildListTile(
-            onTap: () => Get.offAllNamed(profileController.userType.value == 'Doctor'
-                ? RouteName.doctorHomePage
-                : RouteName.patientHomePage),
+            onTap: () => Get.offAllNamed(
+                profileController.userType.value == 'Doctor'
+                    ? RouteName.doctorHomePage
+                    : RouteName.patientHomePage),
             title: "Dashboard",
             icon: LucideIcons.home,
           ),
@@ -161,16 +168,27 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
             icon: LucideIcons.user,
           ),
 
+          // NEW: My Chats (for both Doctor and Patient)
+          _buildListTile(
+            onTap: () => Navigator.push(
+              context,
+              MaterialPageRoute(
+                  builder: (context) => const AllChatsPage()),
+            ),
+            title: "My Chats",
+            icon: LucideIcons.messageCircle,
+          ),
+
           // Patient-specific items
           Obx(() {
             if (profileController.userType.value == 'Patient') {
               return Column(
                 children: [
-
                   _buildListTile(
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => AppointmentsPage()),
+                      MaterialPageRoute(
+                          builder: (context) => AppointmentsPage()),
                     ),
                     title: "My Appointments",
                     icon: LucideIcons.calendarCheck,
@@ -178,7 +196,9 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
                   _buildListTile(
                     onTap: () => Navigator.push(
                       context,
-                      MaterialPageRoute(builder: (context) => PatientHealthRecordsPage()),
+                      MaterialPageRoute(
+                          builder: (context) =>
+                              PatientHealthRecordsPage()),
                     ),
                     title: "Health Records",
                     icon: LucideIcons.clipboardList,
@@ -196,20 +216,17 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
               return Column(
                 children: [
                   _buildListTile(
-                    onTap: () => Get.toNamed(RouteName.availabilityManagerPage),
+                    onTap: () =>
+                        Get.toNamed(RouteName.availabilityManagerPage),
                     title: "My Schedule",
                     icon: LucideIcons.calendarCheck,
                   ),
                   _buildListTile(
-                    onTap: () => Get.toNamed(RouteName.doctorHomePage),
+                    onTap: () =>
+                        Get.toNamed(RouteName.doctorHomePage),
                     title: "My Patients",
                     icon: LucideIcons.users,
                   ),
-                  // _buildListTile(
-                  //   onTap: () => Get.toNamed(RouteName.doctorHomePage),
-                  //   title: "Write Prescription",
-                  //   icon: LucideIcons.fileText,
-                  // ),
                 ],
               );
             } else {
@@ -217,12 +234,6 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
             }
           }),
 
-          // Common items
-          // _buildListTile(
-          //   onTap: () => Get.toNamed(RouteName.chattingPage),
-          //   title: "Assistant",
-          //   icon: LucideIcons.bot,
-          // ),
           _buildListTile(
             onTap: () => Get.toNamed(RouteName.setting),
             title: "Settings",
@@ -257,7 +268,11 @@ class _MenuWidgetState extends State<MenuWidget> with SingleTickerProviderStateM
           fontWeight: FontWeight.w500,
         ),
       ),
-      trailing: const Icon(LucideIcons.chevronRight, size: 20, color: Colors.white),
+      trailing: const Icon(
+        LucideIcons.chevronRight,
+        size: 20,
+        color: Colors.white,
+      ),
     );
   }
 

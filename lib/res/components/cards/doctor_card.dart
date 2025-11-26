@@ -6,7 +6,12 @@ import 'package:lucide_icons/lucide_icons.dart';
 import 'package:sehatyab/res/colors/app_colors.dart';
 
 import '../../../models/doctor/doctor_model/doctor_model.dart';
+import '../../../services/chat/chat_services.dart';
 import '../../../view/patient/appointment/appointment_booking_page.dart';
+
+import '../../../models/chat/chat_conversation_model.dart';
+import '../../../view/chat/doctor_chat_screen.dart';
+
 
 class DoctorDetailPage extends StatefulWidget {
   final Map<String, dynamic> doctor;
@@ -41,6 +46,77 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
     reviewsRef = doctorRef.collection('reviews');
     _prefillMyReview();
   }
+
+  Future<void> _openChatWithDoctor(Map<String, dynamic> doctor) async {
+    final user = _auth.currentUser;
+    if (user == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('You must be logged in to chat.')),
+      );
+      return;
+    }
+
+    final String patientId = user.uid;
+    final String doctorDocId =
+    (doctor['id'] ?? doctorId ?? '').toString().trim();
+
+    if (doctorDocId.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Doctor information not available.')),
+      );
+      return;
+    }
+
+    try {
+      // Fetch patient profile to get name + image
+      final patientSnap = await FirebaseFirestore.instance
+          .collection('patients')
+          .doc(patientId)
+          .get();
+      final patientData = patientSnap.data() ?? {};
+
+      final String patientName =
+      (patientData['name'] ?? patientData['fullName'] ?? 'Patient')
+          .toString();
+      final String? patientImage = (patientData['imageUrl'] ??
+          patientData['image']) as String?;
+
+      // Doctor display info
+      final String doctorName =
+      (doctor['name'] ?? 'Unknown Doctor').toString();
+      final String? doctorImage =
+      (doctor['imageUrl'] ?? doctor['image']) as String?;
+
+      final chatService = ChatService.instance;
+
+      final ChatConversation conversation =
+      await chatService.createOrGetConversation(
+        doctorId: doctorDocId,
+        patientId: patientId,
+        doctorName: doctorName,
+        patientName: patientName,
+        doctorImage: doctorImage,
+        patientImage: patientImage,
+      );
+
+      if (!mounted) return;
+
+      Navigator.push(
+        context,
+        MaterialPageRoute(
+          builder: (context) => DoctorChatScreen(
+            conversation: conversation,
+            currentUserId: patientId,
+          ),
+        ),
+      );
+    } catch (e) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text('Failed to open chat: $e')),
+      );
+    }
+  }
+
 
   Future<void> _prefillMyReview() async {
     final uid = _auth.currentUser?.uid;
@@ -131,7 +207,10 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
                       _ReviewsList(reviewsRef: reviewsRef),
                       const SizedBox(height: 24),
 
+                      _buildChatButton(context, headerData),
+                      const SizedBox(height: 12),
                       _buildAppointmentButton(context, headerData),
+
                     ],
                   ),
                 ),
@@ -139,6 +218,35 @@ class _DoctorDetailPageState extends State<DoctorDetailPage> {
             ),
           );
         },
+      ),
+    );
+  }
+
+
+  // ----------------- CHAT BUTTON -----------------
+
+  Widget _buildChatButton(
+      BuildContext context, Map<String, dynamic> doctor) {
+    return SizedBox(
+      width: double.infinity,
+      child: OutlinedButton.icon(
+        style: OutlinedButton.styleFrom(
+          padding: const EdgeInsets.symmetric(vertical: 14),
+          shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12),
+          ),
+          side: BorderSide(color: AppColors.secondaryColor),
+        ),
+        icon: Icon(Icons.chat_bubble_outline, color: AppColors.secondaryColor),
+        label: Text(
+          'Chat with Doctor',
+          style: GoogleFonts.poppins(
+            color: AppColors.secondaryColor,
+            fontSize: 14,
+            fontWeight: FontWeight.w600,
+          ),
+        ),
+        onPressed: () => _openChatWithDoctor(doctor),
       ),
     );
   }
