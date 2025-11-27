@@ -51,7 +51,7 @@ class _AllChatsPageState extends State<AllChatsPage> {
               fontWeight: FontWeight.w600,
             ),
           ),
-          backgroundColor: AppColors.primaryColor,
+          backgroundColor: AppColors.lightSecondary,
         ),
         body: Center(
           child: Text(
@@ -72,7 +72,7 @@ class _AllChatsPageState extends State<AllChatsPage> {
             fontWeight: FontWeight.w600,
           ),
         ),
-        backgroundColor: AppColors.primaryColor,
+        backgroundColor: AppColors.lightSecondary,
         iconTheme: const IconThemeData(color: Colors.white),
         titleSpacing: 0,
       ),

@@ -326,76 +326,76 @@ class _ProfileScreenState extends State<ProfileScreen>
     );
   }
 
-  // Widget _buildMedicalInfoSection() {
-  //   return FadeTransition(
-  //     opacity: _fadeAnimation,
-  //     child: Container(
-  //       decoration: BoxDecoration(
-  //         borderRadius: BorderRadius.circular(15),
-  //         color: Colors.white.withOpacity(0.2),
-  //       ),
-  //       child: Column(
-  //         children: [
-  //           // Show different options based on user type
-  //           if (_controller.userType.value == 'Patient') ...[
-  //             ListTile(
-  //               leading: const Icon(LucideIcons.fileText, color: Colors.white),
-  //               title: Text(
-  //                 'Health Records',
-  //                 style: GoogleFonts.poppins(
-  //                   color: Colors.white,
-  //                   fontWeight: FontWeight.bold,
-  //                 ),
-  //               ),
-  //               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
-  //               onTap: () => Get.toNamed(RouteName.patientHealthRecordPage),
-  //             ),
-  //
-  //
-  //           ],
-  //           if (_controller.userType.value == 'Doctor') ...[
-  //             ListTile(
-  //               leading: const Icon(LucideIcons.calendar, color: Colors.white),
-  //               title: Text(
-  //                 'My Schedule',
-  //                 style: GoogleFonts.poppins(
-  //                   color: Colors.white,
-  //                   fontWeight: FontWeight.bold,
-  //                 ),
-  //               ),
-  //               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
-  //               onTap: () => Get.toNamed(RouteName.doctorSchedulePage),
-  //             ),
-  //             const Divider(color: Colors.white70),
-  //             ListTile(
-  //               leading: const Icon(LucideIcons.users, color: Colors.white),
-  //               title: Text(
-  //                 'My Patients',
-  //                 style: GoogleFonts.poppins(
-  //                   color: Colors.white,
-  //                   fontWeight: FontWeight.bold,
-  //                 ),
-  //               ),
-  //               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
-  //               // onTap: () => Get.toNamed(RouteName.doctorPatientsPage),
-  //             ),
-  //             const Divider(color: Colors.white70),
-  //             ListTile(
-  //               leading: const Icon(LucideIcons.fileText, color: Colors.white),
-  //               title: Text(
-  //                 'Patient Records',
-  //                 style: GoogleFonts.poppins(
-  //                   color: Colors.white,
-  //                   fontWeight: FontWeight.bold,
-  //                 ),
-  //               ),
-  //               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
-  //               // onTap: () => Get.toNamed(RouteName.doctorRecordsPage),
-  //             ),
-  //           ],
-  //         ],
-  //       ),
-  //     ),
-  //   );
-  // }
+// Widget _buildMedicalInfoSection() {
+//   return FadeTransition(
+//     opacity: _fadeAnimation,
+//     child: Container(
+//       decoration: BoxDecoration(
+//         borderRadius: BorderRadius.circular(15),
+//         color: Colors.white.withOpacity(0.2),
+//       ),
+//       child: Column(
+//         children: [
+//           // Show different options based on user type
+//           if (_controller.userType.value == 'Patient') ...[
+//             ListTile(
+//               leading: const Icon(LucideIcons.fileText, color: Colors.white),
+//               title: Text(
+//                 'Health Records',
+//                 style: GoogleFonts.poppins(
+//                   color: Colors.white,
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
+//               onTap: () => Get.toNamed(RouteName.patientHealthRecordPage),
+//             ),
+//
+//
+//           ],
+//           if (_controller.userType.value == 'Doctor') ...[
+//             ListTile(
+//               leading: const Icon(LucideIcons.calendar, color: Colors.white),
+//               title: Text(
+//                 'My Schedule',
+//                 style: GoogleFonts.poppins(
+//                   color: Colors.white,
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
+//               onTap: () => Get.toNamed(RouteName.doctorSchedulePage),
+//             ),
+//             const Divider(color: Colors.white70),
+//             ListTile(
+//               leading: const Icon(LucideIcons.users, color: Colors.white),
+//               title: Text(
+//                 'My Patients',
+//                 style: GoogleFonts.poppins(
+//                   color: Colors.white,
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
+//               // onTap: () => Get.toNamed(RouteName.doctorPatientsPage),
+//             ),
+//             const Divider(color: Colors.white70),
+//             ListTile(
+//               leading: const Icon(LucideIcons.fileText, color: Colors.white),
+//               title: Text(
+//                 'Patient Records',
+//                 style: GoogleFonts.poppins(
+//                   color: Colors.white,
+//                   fontWeight: FontWeight.bold,
+//                 ),
+//               ),
+//               trailing: const Icon(LucideIcons.chevronRight, color: Colors.white),
+//               // onTap: () => Get.toNamed(RouteName.doctorRecordsPage),
+//             ),
+//           ],
+//         ],
+//       ),
+//     ),
+//   );
+// }
 }

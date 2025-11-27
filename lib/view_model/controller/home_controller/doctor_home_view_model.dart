@@ -22,20 +22,36 @@ class DoctorHomeViewModel extends GetxController {
   StreamSubscription? _subListener;
   StreamSubscription? _topListener;
 
+  @override
+  void onInit() {
+    super.onInit();
+    // Initialize with empty data to avoid null issues
+    _safeClearLists();
+  }
+
   // Use onReady to ensure the view is ready before the initial data fetch
   @override
   void onReady() {
-    refreshData();
     super.onReady();
+    // Use delayed initialization to avoid build conflicts
+    Future.microtask(() {
+      refreshData();
+    });
   }
 
   @override
   void onClose() {
     _cancelListeners();
-    // It's generally good practice to explicitly delete the controller 
-    // if it's only needed for the logged-in session, 
-    // but the calling page handles that best (see DoctorHomePage fix).
     super.onClose();
+  }
+
+  /// Safely clear lists using microtask to avoid build phase conflicts
+  void _safeClearLists() {
+    Future.microtask(() {
+      pendingAppointments.clear();
+      upcomingAppointments.clear();
+      historyAppointments.clear();
+    });
   }
 
   /// Cancels all active Firestore stream listeners.
@@ -45,24 +61,29 @@ class DoctorHomeViewModel extends GetxController {
     _subListener = null;
     _topListener = null;
     // Clear data lists when listeners are cancelled (e.g., on logout)
-    pendingAppointments.clear();
-    upcomingAppointments.clear();
-    historyAppointments.clear();
+    _safeClearLists();
   }
 
   /// Refreshes the appointment data based on the currently logged-in doctor.
-  void refreshData() {
+  Future<void> refreshData() async {
     final uid = _auth.currentUser?.uid;
 
     // Clear old data and listeners first
     _cancelListeners();
 
     if (uid == null) {
-      isLoading.value = false;
+      // Use microtask to avoid setState during build
+      Future.microtask(() {
+        isLoading.value = false;
+      });
       return;
     }
 
-    isLoading.value = true;
+    // Use microtask to avoid setState during build
+    Future.microtask(() {
+      isLoading.value = true;
+    });
+
     _subscribe(uid); // Start subscription with the current UID
   }
 
@@ -77,7 +98,10 @@ class DoctorHomeViewModel extends GetxController {
 
     _subListener = subStream.listen((list) {
       _partition(list);
-      isLoading.value = false;
+      // Use microtask to avoid setState during build
+      Future.microtask(() {
+        isLoading.value = false;
+      });
 
       // Fallback logic
       if (list.isEmpty) {
@@ -87,7 +111,10 @@ class DoctorHomeViewModel extends GetxController {
         _topListener = null;
       }
     }, onError: (_) {
-      isLoading.value = false;
+      // Use microtask to avoid setState during build
+      Future.microtask(() {
+        isLoading.value = false;
+      });
     });
   }
 
@@ -108,33 +135,42 @@ class DoctorHomeViewModel extends GetxController {
           historyAppointments.isEmpty) {
         _partition(list);
       }
-      isLoading.value = false;
+      // Use microtask to avoid setState during build
+      Future.microtask(() {
+        isLoading.value = false;
+      });
     }, onError: (_) {
-      isLoading.value = false;
+      // Use microtask to avoid setState during build
+      Future.microtask(() {
+        isLoading.value = false;
+      });
     });
   }
 
   void _partition(List<Appointment> all) {
     final todayKey = DateFormat('yyyy-MM-dd').format(DateTime.now());
 
-    pendingAppointments.value =
-        all.where((a) => a.status == 'pending').toList();
+    // Use microtask to update observables safely
+    Future.microtask(() {
+      pendingAppointments.value =
+          all.where((a) => a.status == 'pending').toList();
 
-    upcomingAppointments.value = all.where((a) {
-      final isFutureOrToday =
-      (a.dateKey ?? '').isNotEmpty ? (a.dateKey!.compareTo(todayKey) >= 0) : true;
-      return a.status == 'confirmed' && isFutureOrToday;
-    }).toList();
+      upcomingAppointments.value = all.where((a) {
+        final isFutureOrToday =
+        (a.dateKey ?? '').isNotEmpty ? (a.dateKey!.compareTo(todayKey) >= 0) : true;
+        return a.status == 'confirmed' && isFutureOrToday;
+      }).toList();
 
-    historyAppointments.value = all.where((a) {
-      final ended = ['cancelled', 'rejected', 'completed'].contains(a.status);
-      if (ended) return true;
+      historyAppointments.value = all.where((a) {
+        final ended = ['cancelled', 'rejected', 'completed'].contains(a.status);
+        if (ended) return true;
 
-      // push past confirmed into history if its day is gone
-      final isPast =
-      (a.dateKey ?? '').isNotEmpty ? (a.dateKey!.compareTo(todayKey) < 0) : false;
-      return a.status == 'confirmed' && isPast;
-    }).toList();
+        // push past confirmed into history if its day is gone
+        final isPast =
+        (a.dateKey ?? '').isNotEmpty ? (a.dateKey!.compareTo(todayKey) < 0) : false;
+        return a.status == 'confirmed' && isPast;
+      }).toList();
+    });
   }
 
   // ---------- Helpers to write to all mirrors safely ----------
@@ -198,7 +234,6 @@ class DoctorHomeViewModel extends GetxController {
       });
     });
   }
-
 
   Future<void> confirmAppointment(Appointment a) async {
     await _updateStatusEverywhere(a, 'confirmed');

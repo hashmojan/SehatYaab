@@ -30,6 +30,8 @@ class DoctorDailyAvailabilityController extends GetxController {
     final user = FirebaseAuth.instance.currentUser;
     if (user != null) {
       _doctorId.value = user.uid;
+      // Initialize focused day to current date
+      focusedDay.value = DateTime.now();
       _listenForDailyAvailability();
     } else {
       isLoading.value = false;
@@ -42,8 +44,21 @@ class DoctorDailyAvailabilityController extends GetxController {
     super.onClose();
   }
 
+  /// Initialize focused day safely
+  void initializeFocusedDay() {
+    final now = DateTime.now();
+    final firstDay = now;
+    final lastDay = now.add(const Duration(days: 365));
+
+    // Ensure focusedDay is within valid range
+    if (focusedDay.value.isBefore(firstDay)) {
+      focusedDay.value = firstDay;
+    } else if (focusedDay.value.isAfter(lastDay)) {
+      focusedDay.value = lastDay;
+    }
+  }
+
   /// Listen from: /doctors/{doctorId}/daily_availability
-  /// Only filters on 'date' (same field), no composite index needed.
   void _listenForDailyAvailability() {
     if (_doctorId.value.isEmpty) return;
 
@@ -72,28 +87,48 @@ class DoctorDailyAvailabilityController extends GetxController {
         }
       }
 
-      dailyAvailability.value = updated;
-      selectedDays
-        ..clear()
-        ..addAll(newSelected);
-      isLoading.value = false;
+      // Use microtask to avoid build phase conflicts
+      Future.microtask(() {
+        dailyAvailability.value = updated;
+        selectedDays
+          ..clear()
+          ..addAll(newSelected);
+        isLoading.value = false;
+      });
     }, onError: (e) {
-      Get.snackbar('Availability Error', e.toString());
-      isLoading.value = false;
+      Future.microtask(() {
+        Get.snackbar('Availability Error', e.toString());
+        isLoading.value = false;
+      });
     });
   }
 
   void setSelectedDay(DateTime day) => selectedDay.value = day;
-  void setFocusedDay(DateTime day) => focusedDay.value = day;
+
+  void setFocusedDay(DateTime day) {
+    final firstDay = DateTime.now();
+    final lastDay = firstDay.add(const Duration(days: 365));
+
+    // Ensure focusedDay is within valid range
+    if (day.isBefore(firstDay)) {
+      day = firstDay;
+    } else if (day.isAfter(lastDay)) {
+      day = lastDay;
+    }
+
+    focusedDay.value = day;
+  }
 
   void toggleSelectedDay(DateTime day) {
     final d = DateTime(day.year, day.month, day.day);
-    if (selectedDays.contains(d)) {
-      selectedDays.remove(d);
-    } else {
-      selectedDays.add(d);
-    }
-    selectedDay.value = d;
+    Future.microtask(() {
+      if (selectedDays.contains(d)) {
+        selectedDays.remove(d);
+      } else {
+        selectedDays.add(d);
+      }
+      selectedDay.value = d;
+    });
   }
 
   /// Bulk set available days for the doctor (keeps existing counts/timeSlots)
@@ -163,11 +198,13 @@ class DoctorDailyAvailabilityController extends GetxController {
     } catch (e) {
       Get.snackbar('Error', 'Failed to update: $e');
     } finally {
-      isSaving.value = false;
+      Future.microtask(() {
+        isSaving.value = false;
+      });
     }
   }
 
-  /// Update a single day’s availability (with optional custom timeSlots)
+  /// Update a single day's availability (with optional custom timeSlots)
   Future<void> updateDailyAvailability({
     required DateTime date,
     required String status,
@@ -194,11 +231,13 @@ class DoctorDailyAvailabilityController extends GetxController {
       snap.exists ? (dataMap?['createdAt'] as Timestamp?) : null;
 
       // update local UI selection set
-      if (status == 'available') {
-        selectedDays.add(nd);
-      } else {
-        selectedDays.remove(nd);
-      }
+      Future.microtask(() {
+        if (status == 'available') {
+          selectedDays.add(nd);
+        } else {
+          selectedDays.remove(nd);
+        }
+      });
 
       await ref.set({
         'doctorId': _doctorId.value,
@@ -220,12 +259,13 @@ class DoctorDailyAvailabilityController extends GetxController {
     } catch (e) {
       Get.snackbar('Error', 'Failed to save: $e');
     } finally {
-      isSaving.value = false;
+      Future.microtask(() {
+        isSaving.value = false;
+      });
     }
   }
 
-  /// Cancel doctor’s appointments for a given day (no composite index)
-  /// Query path: /doctors/{doctorId}/appointments where dateKey == yyyy-MM-dd
+  /// Cancel doctor's appointments for a given day (no composite index)
   Future<void> _cancelConflictingAppointments(DateTime date) async {
     final key = _dateKey(date);
     try {

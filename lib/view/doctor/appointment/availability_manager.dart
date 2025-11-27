@@ -6,9 +6,14 @@ import 'package:intl/intl.dart';
 import '../../../models/doctor/appointment/availability_model.dart';
 import '../../../view_model/controller/appointment_controller/doctor_controller/doctor_availability_controller.dart';
 
-class AvailabilityManagerPage extends StatelessWidget {
-  AvailabilityManagerPage({super.key});
+class AvailabilityManagerPage extends StatefulWidget {
+  const AvailabilityManagerPage({super.key});
 
+  @override
+  State<AvailabilityManagerPage> createState() => _AvailabilityManagerPageState();
+}
+
+class _AvailabilityManagerPageState extends State<AvailabilityManagerPage> {
   final DoctorDailyAvailabilityController _c =
   Get.isRegistered<DoctorDailyAvailabilityController>()
       ? Get.find<DoctorDailyAvailabilityController>()
@@ -24,6 +29,15 @@ class AvailabilityManagerPage extends StatelessWidget {
     '03:00 PM - 04:00 PM',
     '04:00 PM - 05:00 PM',
   ];
+
+  @override
+  void initState() {
+    super.initState();
+    // Initialize focused day after widget is mounted
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _c.initializeFocusedDay();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -54,12 +68,23 @@ class AvailabilityManagerPage extends StatelessWidget {
 
   Widget _buildCalendar() {
     final map = _c.dailyAvailability;
+    final firstDay = DateTime.now();
+    final lastDay = DateTime.now().add(const Duration(days: 365));
+
+    // Ensure focusedDay is within valid range
+    DateTime focusedDay = _c.focusedDay.value;
+    if (focusedDay.isBefore(firstDay)) {
+      focusedDay = firstDay;
+    } else if (focusedDay.isAfter(lastDay)) {
+      focusedDay = lastDay;
+    }
+
     return Padding(
       padding: const EdgeInsets.all(16.0),
       child: TableCalendar(
-        firstDay: DateTime.now(),
-        lastDay: DateTime.now().add(const Duration(days: 365)),
-        focusedDay: _c.focusedDay.value,
+        firstDay: firstDay,
+        lastDay: lastDay,
+        focusedDay: focusedDay,
         calendarFormat: CalendarFormat.month,
         selectedDayPredicate: (d) =>
             _c.selectedDays.contains(DateTime(d.year, d.month, d.day)),
@@ -150,21 +175,23 @@ class AvailabilityManagerPage extends StatelessWidget {
       child: Card(
         child: Padding(
           padding: const EdgeInsets.all(16),
-          child:
-          Row(mainAxisAlignment: MainAxisAlignment.spaceBetween, children: [
-            Expanded(
-              child: Text(
-                'Availability for ${DateFormat.yMMMd().format(d)}\n$text',
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Expanded(
+                child: Text(
+                  'Availability for ${DateFormat.yMMMd().format(d)}\n$text',
+                ),
               ),
-            ),
-            TextButton(
-              onPressed: () {
-                final existing = map[key];
-                _showEditDialog(Get.context!, d, existing);
-              },
-              child: const Text('Edit'),
-            ),
-          ]),
+              TextButton(
+                onPressed: () {
+                  final existing = map[key];
+                  _showEditDialog(Get.context!, d, existing);
+                },
+                child: const Text('Edit'),
+              ),
+            ],
+          ),
         ),
       ),
     );
@@ -181,22 +208,21 @@ class AvailabilityManagerPage extends StatelessWidget {
           content: SizedBox(
             width: double.maxFinite,
             height: 400,
-            child: Obx(() {
-              final selected = _c.selectedDays;
-              return ListView.builder(
-                itemCount: days.length,
-                itemBuilder: (_, i) {
-                  final d = days[i];
-                  final nd = DateTime(d.year, d.month, d.day);
-                  final isOn = selected.contains(nd);
+            child: ListView.builder(
+              itemCount: days.length,
+              itemBuilder: (_, i) {
+                final d = days[i];
+                final nd = DateTime(d.year, d.month, d.day);
+                return Obx(() {
+                  final isOn = _c.selectedDays.contains(nd);
                   return CheckboxListTile(
                     title: Text(DateFormat.yMMMd().format(d)),
                     value: isOn,
                     onChanged: (_) => _c.toggleSelectedDay(d),
                   );
-                },
-              );
-            }),
+                });
+              },
+            ),
           ),
           actions: [
             TextButton(
@@ -240,8 +266,10 @@ class AvailabilityManagerPage extends StatelessWidget {
                   value: status.value,
                   decoration: const InputDecoration(labelText: 'Status'),
                   items: const [
-                    DropdownMenuItem(value: 'available', child: Text('Available')),
-                    DropdownMenuItem(value: 'unavailable', child: Text('Unavailable')),
+                    DropdownMenuItem(
+                        value: 'available', child: Text('Available')),
+                    DropdownMenuItem(
+                        value: 'unavailable', child: Text('Unavailable')),
                   ],
                   onChanged: (v) => status.value = v ?? 'available',
                 ),
@@ -249,16 +277,16 @@ class AvailabilityManagerPage extends StatelessWidget {
                 if (isAvailable) ...[
                   TextFormField(
                     initialValue: patientLimit.value.toString(),
-                    decoration:
-                    const InputDecoration(labelText: 'Patient Limit (optional if using slots)'),
+                    decoration: const InputDecoration(
+                        labelText: 'Patient Limit (optional if using slots)'),
                     keyboardType: TextInputType.number,
                     onChanged: (v) => patientLimit.value = int.tryParse(v) ?? 20,
                   ),
                   const SizedBox(height: 12),
-                  Align(
+                  const Align(
                     alignment: Alignment.centerLeft,
                     child: Text('Time Slots (optional — overrides capacity)',
-                        style: const TextStyle(fontWeight: FontWeight.w600)),
+                        style: TextStyle(fontWeight: FontWeight.w600)),
                   ),
                   const SizedBox(height: 6),
                   SizedBox(
@@ -268,19 +296,21 @@ class AvailabilityManagerPage extends StatelessWidget {
                       itemCount: allSlots.length,
                       itemBuilder: (_, i) {
                         final slot = allSlots[i];
-                        final on = selected.contains(slot);
-                        return CheckboxListTile(
-                          dense: true,
-                          value: on,
-                          title: Text(slot),
-                          onChanged: (v) {
-                            if (v == true) {
-                              selected.add(slot);
-                            } else {
-                              selected.remove(slot);
-                            }
-                          },
-                        );
+                        return Obx(() {
+                          final on = selected.contains(slot);
+                          return CheckboxListTile(
+                            dense: true,
+                            value: on,
+                            title: Text(slot),
+                            onChanged: (v) {
+                              if (v == true) {
+                                selected.add(slot);
+                              } else {
+                                selected.remove(slot);
+                              }
+                            },
+                          );
+                        });
                       },
                     ),
                   ),
@@ -289,7 +319,9 @@ class AvailabilityManagerPage extends StatelessWidget {
             ),
           ),
           actions: [
-            TextButton(onPressed: () => Navigator.pop(context), child: const Text('Cancel')),
+            TextButton(
+                onPressed: () => Navigator.pop(context),
+                child: const Text('Cancel')),
             TextButton(
               onPressed: () async {
                 await _c.updateDailyAvailability(
@@ -314,6 +346,7 @@ class _LegendDot extends StatelessWidget {
   const _LegendDot({required this.color, required this.label});
   final Color color;
   final String label;
+
   @override
   Widget build(BuildContext context) {
     return Row(

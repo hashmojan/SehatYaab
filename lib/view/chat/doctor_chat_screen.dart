@@ -109,7 +109,7 @@ class _DoctorChatScreenState extends State<DoctorChatScreen> {
 
     return Scaffold(
       appBar: AppBar(
-        backgroundColor: AppColors.primaryColor,
+        backgroundColor: AppColors.lightSecondary,
         iconTheme: const IconThemeData(color: Colors.white),
         titleSpacing: 0,
         title: Row(

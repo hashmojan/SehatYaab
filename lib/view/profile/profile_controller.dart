@@ -66,8 +66,8 @@ class ProfileController extends GetxController {
         }
       }
     } catch (e) {
-      print("Error fetching user data: $e");
-      Get.snackbar('Error', 'Failed to fetch profile data');
+      // print("Error fetching user data: $e");
+      // Get.snackbar('Error', 'Failed to fetch profile data');
     } finally {
       isLoading.value = false;
     }

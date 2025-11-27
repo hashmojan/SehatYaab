@@ -27,20 +27,17 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
         ? Get.find<DoctorHomeViewModel>()
         : Get.put(DoctorHomeViewModel());
 
-    // Call refreshData() here to ensure the latest doctor's data is loaded
-    // even if the ViewModel instance was reused from a previous login.
-    controller.refreshData();
-
     _tabController = TabController(length: 3, vsync: this);
+
+    // Use delayed initialization to avoid build phase conflicts
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      controller.refreshData();
+    });
   }
 
   @override
   void dispose() {
     _tabController.dispose();
-    // IMPORTANT: If you want the ViewModel to be completely destroyed when
-    // the user navigates away (e.g., they log out), uncomment the line below.
-    // If you always want to reuse the same instance, keep it commented.
-    // Get.delete<DoctorHomeViewModel>();
     super.dispose();
   }
 
@@ -86,9 +83,15 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
               labelColor: AppColors.secondaryColor,
               unselectedLabelColor: Colors.grey,
               tabs: [
-                Obx(() => Tab(text: 'Pending (${controller.pendingAppointments.length})')),
-                Obx(() => Tab(text: 'Upcoming (${controller.upcomingAppointments.length})')),
-                Obx(() => Tab(text: 'History (${controller.historyAppointments.length})')),
+                Tab(
+                  child: Obx(() => Text('Pending (${controller.pendingAppointments.length})')),
+                ),
+                Tab(
+                  child: Obx(() => Text('Upcoming (${controller.upcomingAppointments.length})')),
+                ),
+                Tab(
+                  child: Obx(() => Text('History (${controller.historyAppointments.length})')),
+                ),
               ],
             ),
             Expanded(
@@ -109,7 +112,12 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
 
   Widget _buildList(List<Appointment> items) {
     if (items.isEmpty) {
-      return Center(child: Text('No appointments found.', style: GoogleFonts.poppins()));
+      return Center(
+        child: Text(
+            'No appointments found.',
+            style: GoogleFonts.poppins()
+        ),
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(8.0),
@@ -123,7 +131,12 @@ class _DoctorHomePageState extends State<DoctorHomePage> with SingleTickerProvid
 
   Widget _buildPending(List<Appointment> items) {
     if (items.isEmpty) {
-      return Center(child: Text('No new appointment requests.', style: GoogleFonts.poppins()));
+      return Center(
+        child: Text(
+            'No new appointment requests.',
+            style: GoogleFonts.poppins()
+        ),
+      );
     }
     return ListView.builder(
       padding: const EdgeInsets.all(8.0),
